@@ -184,8 +184,14 @@ public class JoolinkCloudLoginActivity extends Activity {
             if(jooan!=null)state="Võrgustaatus: "+jooan.optString("is_online","teadmata");
             if(ali!=null&&!ali.isNull("status"))state="Võrgustaatus: "+ali.optString("status","teadmata");
             Ui.add(card,Ui.text(this,(model.isEmpty()?"Kaamera":model)+(state.isEmpty()?"":" • "+state),12,false),this,3);
-            TextView details=Ui.text(this,"Otsevideo üle pilve nõuab järgmist P2P/LinkVisual integratsiooni.",12,false);
+            TextView details=Ui.text(this,
+                "Tootja pilvevideo avaneb ametlikus Joolinki rakenduses. "+
+                "HomeJoolinki sees töötab eraldi RTSP/HLS mängija.",12,false);
             details.setTextColor(Ui.MUTED);Ui.add(card,details,this,6);
+            final String cameraLabel=nickname;
+            Button remote=Ui.button(this,"▶ Ava kaugvaade (Joolinki äpis)");
+            remote.setOnClickListener(v->OfficialJoolinkBridge.open(this,cameraLabel));
+            Ui.add(card,remote,this,6);
             Ui.add(deviceList,card,this,8);
         }
     }
