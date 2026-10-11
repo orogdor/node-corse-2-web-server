@@ -63,13 +63,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='joolin2-decoder-public-v1'
+          TAG='joolin2-decoder-public-v2'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" 'Joolin2-Decoder-Test.apk' --clobber
           else
             gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
               --target joolin2-public \
-              --title "Joolin2 – Unofficial decoder options (test APK)" \
-              --notes "Unofficial experimental Joolink 5.3.8.2 derivative. Different Android package name ee.joolin2.decoder. Adds Video menu with auto/software/hardware decoder selection and experimental color correction. Built from checksum-verified vendor APK. Android-signature and camera/login compatibility are not verified on real devices. Third-party rights remain with their owners." \
+              --title "Joolin2 v2 – Android permission conflict fixed" \
+              --notes "Joolin2 v2 TEST: Renamed vendor custom permission declarations and references to fix possible INSTALL_FAILED_DUPLICATE_PERMISSION when original Joolink is installed. Retains independent app ID, decoder menu and experimental color filters. APK signed and validated by Android SDK but actual Samsung device compatibility not yet verified. Unofficial modified Joolink 5.3.8.2 app, not an official release." \
               --latest=false
           fi
