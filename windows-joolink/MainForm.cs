@@ -16,7 +16,7 @@ public sealed class MainForm : Form
     private readonly CancellationTokenSource closing = new();
     private JoolinkCloudClient.Session? session;
     private readonly TextBox account = new(), password = new(), url = new(), log = new();
-    private readonly ComboBox decoder = new(), transport = new();
+    private readonly ComboBox decoder = new(), transport = new(), requestMode = new();
     private readonly ListBox cameras = new();
     private readonly Label cloudStatus = new(), videoStatus = new();
     private readonly Button login = new(), refresh = new();
@@ -27,23 +27,56 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "HomeJoolink — Windows 1.0 TEST";
-        StartPosition = FormStartPosition.CenterScreen;
+        Text = "HomeJoolink — Windows v1.0.2 TEST";
+        AutoScaleMode = AutoScaleMode.Dpi;
+        StartPosition = FormStartPosition.Manual;
         BackColor = BG; ForeColor = TXT;
-        Width = 1250; Height = 790; MinimumSize = new Size(920, 590);
         Font = new Font("Segoe UI", 10f);
+        // Fit the actual Windows work area, including taskbar and DPI scaling.
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        MinimumSize = new Size(Math.Min(760, area.Width), Math.Min(510, area.Height));
+        Size = new Size(Math.Min(1210, area.Width), Math.Min(790, area.Height));
+        Location = new Point(area.Left + Math.Max(0, (area.Width - Width) / 2),
+                             area.Top + Math.Max(0, (area.Height - Height) / 2));
         MakeUi();
-        Shown += (_, _) => InitPlayer();
+        Shown += (_, _) => {
+            FitToWorkingArea();
+            InitPlayer();
+        };
         FormClosing += (_, _) => closing.Cancel();
         FormClosed += (_, _) => Shutdown();
         WriteLog("Rakendus käivitus. Pilve otsevideo ei ole veel toetatud.");
     }
 
+    private void FitToWorkingArea()
+    {
+        var area = Screen.FromControl(this).WorkingArea;
+        if (Width > area.Width || Height > area.Height)
+            Size = new Size(Math.Min(Width, area.Width), Math.Min(Height, area.Height));
+        if (Left < area.Left || Top < area.Top || Right > area.Right || Bottom > area.Bottom)
+            Location = new Point(area.Left + Math.Max(0, (area.Width - Width) / 2),
+                                 area.Top + Math.Max(0, (area.Height - Height) / 2));
+    }
     private static FlowLayoutPanel Flow(TabPage page)
     {
         var f = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = PANEL,
             AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false,
             Padding = new Padding(12, 18, 12, 16) };
+        // Always size inputs and labels to the visible page. No horizontal overflow
+        // when Windows uses 125%, 150%, or 200% scaling.
+        f.ClientSizeChanged += (_, _) => {
+            int width = Math.Max(100, f.ClientSize.Width - f.Padding.Horizontal - 22);
+            foreach (Control control in f.Controls)
+            {
+                if (control.Width != width) control.Width = width;
+                if (control is Label label && label.Tag is int baseHeight)
+                {
+                    int needed = TextRenderer.MeasureText(label.Text, label.Font,
+                        new Size(width, int.MaxValue), TextFormatFlags.WordBreak).Height + 12;
+                    label.Height = Math.Max(baseHeight, needed);
+                }
+            }
+        };
         page.Controls.Add(f);
         return f;
     }
@@ -52,7 +85,7 @@ public sealed class MainForm : Form
         return new Label { Text = value, ForeColor = head ? TXT : SUB,
             Font = new Font("Segoe UI", head ? 12 : 9.3f,
                 head ? FontStyle.Bold : FontStyle.Regular),
-            Width = 330, Height = height, Margin = new Padding(3, 3, 3, 8) };
+            Width = 330, Height = height, Tag = height, Margin = new Padding(3, 3, 3, 8) };
     }
     private static void StyleText(TextBox b, string placeholder, bool secret = false)
     {
@@ -70,8 +103,9 @@ public sealed class MainForm : Form
     }
     private void MakeUi()
     {
-        var split = new SplitContainer { Dock = DockStyle.Fill, Size = new Size(1180, 690), SplitterDistance = 400,
-            Panel1MinSize = 335, Panel2MinSize = 470 };
+        var split = new SplitContainer { Dock = DockStyle.Fill, Size = ClientSize,
+            Panel1MinSize = 280, Panel2MinSize = 270 };
+        split.SplitterDistance = Math.Max(280, Math.Min(385, ClientSize.Width / 3));
         Controls.Add(split);
         var tabs = new TabControl { Dock = DockStyle.Fill };
         split.Panel1.Controls.Add(tabs);
@@ -96,7 +130,7 @@ public sealed class MainForm : Form
         videoPanel.Dock = DockStyle.Fill; videoPanel.BackColor = Color.Black;
         frame.Controls.Add(videoPanel, 0, 1);
         videoPanel.Controls.Add(new Label { Dock = DockStyle.Fill,
-            Text = "Videopilt pole avatud.\\n\\nSisesta videovoo RTSP / HTTP aadress.",
+            Text = "Videopilt pole avatud.\n\nSisesta videovoo RTSP / HTTP aadress.",
             ForeColor = SUB, BackColor = Color.Black,
             TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 13) });
         videoStatus.Dock = DockStyle.Fill; videoStatus.BackColor = PANEL;
@@ -118,6 +152,16 @@ public sealed class MainForm : Form
         SetButton(refresh, "Värskenda kaameraloendit");
         refresh.Enabled = false; refresh.Click += async (_, _) => await LoadCameras();
         panel.Controls.Add(refresh);
+        panel.Controls.Add(TextLabel("Kaameraloendi päringurežiim", true, 33));
+        requestMode.DropDownStyle = ComboBoxStyle.DropDownList;
+        requestMode.BackColor = FIELD; requestMode.ForeColor = TXT;
+        requestMode.Width = 330;
+        requestMode.Items.AddRange(new object[] {
+            "Tavapärane (force_query_bind = Y)",
+            "Alternatiivne (ilma force_query_bind)"
+        });
+        requestMode.SelectedIndex = 0;
+        panel.Controls.Add(requestMode);
         var logout = StyledButton("Lõpeta seanss");
         logout.Click += (_, _) => { session = null; cameras.Items.Clear();
             refresh.Enabled = false; password.Clear(); cloudStatus.Text = "Seanss lõpetatud.";
@@ -210,7 +254,10 @@ public sealed class MainForm : Form
         refresh.Enabled = false;
         try
         {
-            var list = await cloud.CamerasAsync(session, closing.Token);
+            var mode = requestMode.SelectedIndex == 0;
+            WriteLog("Kaameraloendi päring /v3/am/query_device_list, režiim: " +
+                     (mode ? "force_query_bind=Y" : "force_query_bind puudub"));
+            var list = await cloud.CamerasAsync(session, mode, closing.Token);
             if (IsDisposed) return;
             cameras.Items.Clear();
             foreach (var cam in list) cameras.Items.Add(cam);
@@ -218,7 +265,17 @@ public sealed class MainForm : Form
             WriteLog("Kaameraloendi päring õnnestus; kogus: " + list.Count);
         }
         catch (OperationCanceledException) { if (!IsDisposed) cloudStatus.Text = "Katkestatud."; }
-        catch (Exception ex) { cloudStatus.Text = "Kaameraloendi viga: " + Safe(ex.Message);
+        catch (JoolinkCloudClient.DeviceListException ex)
+        {
+            cloudStatus.Text = "Serveri kood: " + ex.Code +
+                ". Vaata diagnostikat ja proovi teist päringurežiimi.";
+            WriteLog("Kaameraloendi vastus: " + ex.Code + ", režiim: " + ex.RequestMode);
+            WriteLog("Tagastatud väljad (ainult väljade nimed): " + ex.ResponseFields);
+            WriteLog("HTTP " + ex.HttpStatus + ". Server ei kinnitanud selle päringu õnnestumist.");
+            if (ex.Code == "E_000_002")
+                WriteLog("E_000_002 tähendus pole kinnitatud. Võib viidata päringu/parameetrite või seansi vastuolule; vali alternatiivne režiim.");
+        }
+        catch (Exception ex) { cloudStatus.Text = "Kaameraloendi ühenduse viga. Vaata diagnostikat.";
             WriteLog("Kaameraloendi viga: " + ex.GetType().Name + " — " + Safe(ex.Message)); }
         finally { if (!IsDisposed && session != null) refresh.Enabled = true; }
     }

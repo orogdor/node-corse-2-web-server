@@ -43,21 +43,21 @@ jobs:
           if ($process.ExitCode -ne 0 -or !$report.StartsWith('OK')) { throw "VLC self-test failed" }
       - name: Prepare standalone EXE
         shell: pwsh
-        run: Copy-Item 'windows-joolink/publish-single/HomeJoolink.exe' 'HomeJoolink-Windows-v1.0.1.exe'
+        run: Copy-Item 'windows-joolink/publish-single/HomeJoolink.exe' 'HomeJoolink-Windows-v1.0.2.exe'
       - name: Upload EXE as CI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-Windows-v1.0.1-EXE
-          path: HomeJoolink-Windows-v1.0.1.exe
+          name: HomeJoolink-Windows-v1.0.2-EXE
+          path: HomeJoolink-Windows-v1.0.2.exe
           retention-days: 30
       - name: Publish public GitHub EXE release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view 'joolink-windows-v1.0.1' 2>$null | Out-Null
+          gh release view 'joolink-windows-v1.0.2' 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create 'joolink-windows-v1.0.1' 'HomeJoolink-Windows-v1.0.1.exe' --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.1 (single EXE TEST)' --notes 'Single Windows 10/11 x64 EXE, no ZIP required. Bundled .NET 8 + LibVLC. App includes experimental Joolink cloud login/camera list and RTSP/HTTP media player. Manufacturer cloud live-video/P2P protocol is NOT implemented. Unsigned test application.'
+            gh release create 'joolink-windows-v1.0.2' 'HomeJoolink-Windows-v1.0.2.exe' --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.2 (single EXE TEST)' --notes 'Windows x64 standalone EXE. Screen/DPI layout fix, selectable camera request mode and safe E_000_002 diagnostics. No ZIP required. Bundled .NET 8 + LibVLC. App includes experimental Joolink cloud login/camera list and RTSP/HTTP media player. Manufacturer cloud live-video/P2P protocol is NOT implemented. Unsigned test application.'
           } else {
-            gh release upload 'joolink-windows-v1.0.1' 'HomeJoolink-Windows-v1.0.1.exe' --clobber
+            gh release upload 'joolink-windows-v1.0.2' 'HomeJoolink-Windows-v1.0.2.exe' --clobber
           }

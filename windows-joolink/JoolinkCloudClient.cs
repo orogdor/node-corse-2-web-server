@@ -18,6 +18,22 @@ internal sealed class JoolinkCloudClient : IDisposable
 
     public sealed record Session(string UserId, string Token);
     public sealed record CloudCamera(string Name, string Model, string OnlineStatus);
+    // No raw server body or token values are ever exposed through this exception.
+    public sealed class DeviceListException : Exception
+    {
+        public string Code { get; }
+        public string RequestMode { get; }
+        public string ResponseFields { get; }
+        public int HttpStatus { get; }
+        public DeviceListException(string code, string requestMode, string responseFields, int httpStatus)
+            : base("Joolinki kaameraloendi päring lükati tagasi (" + code + ").")
+        {
+            Code = code;
+            RequestMode = requestMode;
+            ResponseFields = responseFields;
+            HttpStatus = httpStatus;
+        }
+    }
 
     private static string Id() => Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
     private static Dictionary<string, object> Header(string user = "", string token = "")
@@ -56,22 +72,23 @@ internal sealed class JoolinkCloudClient : IDisposable
             throw new InvalidOperationException("Sobiv seansitoken puudub. Kood: " + Clean(Get(root, "error_code", "code")));
         return new Session(user, token);
     }
-    public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, CancellationToken ct)
+    public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, bool forceQueryBind, CancellationToken ct)
     {
         var request = new Dictionary<string, object>
         {
             ["header"] = Header(session.UserId, session.Token),
-            ["force_query_bind"] = "Y", ["app_version"] = "1.0",
-            ["phone_model"] = "Windows PC", ["package_name"] = Package
+            ["app_version"] = "1.0", ["phone_model"] = "Windows PC", ["package_name"] = Package
         };
+        if (forceQueryBind) request["force_query_bind"] = "Y";
         using var doc = await PostAsync("/v3/am/query_device_list", request, ct);
         var root = doc.RootElement;
-        string code = Get(root, "error_code");
+        string code = Get(root, "error_code", "code");
+        string mode = forceQueryBind ? "force_query_bind=Y" : "force_query_bind puudub";
         if (code.Length > 0 && !new[] { "0", "200", "ok", "success" }.Contains(code, StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Kaameraloendi viga. Kood: " + Clean(code));
+            throw new DeviceListException(Clean(code), mode, SafeFieldNames(root), 200);
         JsonElement? devices = FindDevices(root, 0);
         if (!devices.HasValue)
-            throw new InvalidOperationException("Kaameraloendi väli puudub serveri vastuses.");
+            throw new DeviceListException(code.Length > 0 ? Clean(code) : "NO_DEVICE_LIST", mode, SafeFieldNames(root), 200);
         var items = new List<CloudCamera>();
         foreach (var item in devices.Value.EnumerateArray())
         {
@@ -147,6 +164,16 @@ internal sealed class JoolinkCloudClient : IDisposable
                 value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
                 return value.ToString();
         return "";
+    }
+    internal static string SafeFieldNames(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object) return "JSON ei ole objekt";
+        // Strict allowlist: dynamic JSON keys/values can include private data.
+        string[] permitted = { "error_code", "error_msg", "message", "code", "body",
+            "data", "result", "device_info_list", "device_list", "deviceList",
+            "devices", "header", "seqno" };
+        var seen = permitted.Where(k => root.TryGetProperty(k, out _)).ToArray();
+        return seen.Length > 0 ? string.Join(", ", seen) : "teadmata vastuse struktuur";
     }
     private static string First(params string[] options) => options.First(x => !string.IsNullOrWhiteSpace(x));
     private static string Clean(string value) => value.Length == 0 ? "teadmata"

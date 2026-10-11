@@ -18,3 +18,9 @@ Build: dotnet publish windows-joolink/HomeJoolink.csproj -c Release -r win-x64 -
 GitHub Actions publishes `HomeJoolink-Windows-v1.0.1.exe` as one self-contained Windows x64 application without ZIP or separate .NET installation. To accommodate LibVLC, the runtime extracts native components under the user's private %TEMP%/.net folder on launch; this is an expected implementation detail. It does not need an installer. The EXE is unsigned, so Windows SmartScreen may display an unknown publisher warning.
 
 There is a --self-test <outputfile> mode used during the CI Windows build to verify VLC library initialization without requiring a camera connection. This does not verify remote cloud video.
+
+## Windows v1.0.2
+- Window fits Windows' usable work area instead of using a fixed 1250 x 790 size. Left panel controls scale with the tab width and Windows DPI.
+- Experimental Joolink device-list request variants: original force_query_bind=Y and without the flag. Select manually; no undocumented endpoints or repeated background probing.
+- E_000_002 appears as a server rejection with only response field *names*, error code and mode in copyable diagnostic log. Its exact meaning is unknown; a successful login does not prove that the camera-list API has accepted the session.
+- Cloud video / P2P is still not supported. No credentials or session tokens are written to log or disk.
