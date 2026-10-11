@@ -248,6 +248,15 @@ public class JoolinkApiInspector extends Activity {
                         name.endsWith(".cfg")||name.endsWith(".ini"));
                 if((!isDex&&!isLibrary&&!isConfig)||e.isDirectory())continue;
                 files++;if(isDex)dex++;if(isLibrary)nativeLibraries++;if(isConfig)config++;
+                if(isLibrary){
+                    if((name.contains("iotc")||name.contains("avapi")||
+                         name.contains("tutk")||name.contains("kalay"))&&sdkModules.size()<40)
+                        sdkModules.add("ThroughTek/TUTK teek: "+name.substring(name.lastIndexOf('/')+1));
+                    if(name.contains("kp2p")&&sdkModules.size()<40)
+                        sdkModules.add("KP2P teek: "+name.substring(name.lastIndexOf('/')+1));
+                    if(name.contains("linkvisual")&&sdkModules.size()<40)
+                        sdkModules.add("LinkVisual teek: "+name.substring(name.lastIndexOf('/')+1));
+                }
                 String carry="";int read;long fileBytes=0;
                 long limit=isDex?50000000L:(isLibrary?8500000L:12000000L);
                 while(fileBytes<limit&&(read=zip.read(buffer,0,
@@ -319,6 +328,12 @@ public class JoolinkApiInspector extends Activity {
             sdkModules.add("Alibaba LinkVisual video SDK");
         if(segment.contains("KP2P")&&sdkModules.size()<40)
             sdkModules.add("KP2P seadmepõhine P2P");
+        if((segment.contains("IOTCAPIs")||segment.contains("IOTC_Connect_ByUID"))&&sdkModules.size()<40)
+            sdkModules.add("ThroughTek/TUTK IOTCAPIs");
+        if((segment.contains("AVAPIs")||segment.contains("avClientStartEx"))&&sdkModules.size()<40)
+            sdkModules.add("ThroughTek/TUTK AVAPIs");
+        if(segment.contains("tutk")&&sdkModules.size()<40)
+            sdkModules.add("ThroughTek/TUTK nimeviide");
     }
     private boolean keepHost(String host){
         String h=host.toLowerCase(Locale.ROOT);
