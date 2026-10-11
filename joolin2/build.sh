@@ -26,7 +26,7 @@ python3 "$ROOT/patch.py" --decoded "$WORK/decoded"
 echo '[3/8] Repackage modified APK'
 java -Xmx4g -jar "$APKTOOL_JAR" b "$WORK/decoded" -o "$WORK/unsigned.apk"
 echo '[4/8] Build VideoSettings Java helper'
-javac --release 8 -cp "$ANDROID_JAR" -d "$WORK/compiled" "$ROOT/src/VideoSettings.java"
+javac --release 8 -cp "$ANDROID_JAR" -d "$WORK/compiled" $(find "$ROOT/src" -name '*.java' -print)
 "$BUILDTOOLS/d8" --min-api 26 --lib "$ANDROID_JAR" --output "$WORK/helperdex" $(find "$WORK/compiled" -name '*.class')
 echo '[5/8] Insert helper as new DEX module'
 python3 - "$WORK/unsigned.apk" "$WORK/helperdex/classes.dex" <<'PY'
