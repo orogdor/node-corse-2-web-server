@@ -53,11 +53,11 @@ jobs:
         run: |
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'windows-joolink/installer/HomeJoolink.iss'
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
-          if (!(Test-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.6-Setup.exe')) { throw "Installer EXE missing" }
+          if (!(Test-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.7-Setup.exe')) { throw "Installer EXE missing" }
       - name: Silent install and launch from installed directory
         shell: pwsh
         run: |
-          $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.6-Setup.exe').Path
+          $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.7-Setup.exe').Path
           $target = Join-Path $env:RUNNER_TEMP 'HomeJoolink-installed'
           $installArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $target + '"'))
           $process = Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru -Wait
@@ -78,18 +78,18 @@ jobs:
       - name: Publish installer EXE as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-Windows-v1.0.6-Setup
-          path: windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.6-Setup.exe
+          name: HomeJoolink-Windows-v1.0.7-Setup
+          path: windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.7-Setup.exe
           retention-days: 30
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $file = 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.6-Setup.exe'
-          gh release view 'joolink-windows-v1.0.6' 2>$null | Out-Null
+          $file = 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.7-Setup.exe'
+          gh release view 'joolink-windows-v1.0.7' 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create 'joolink-windows-v1.0.6' $file --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.6 (fast-start installer EXE)' --notes 'Single setup EXE. Installs the app, .NET 8 and LibVLC locally once, with Start menu shortcut, so later launches do not extract the 216 MB portable bundle. Tested installed GUI and VLC startup on Windows CI. Manufacturer APK version 5.3.8.2 request fields, optional Samsung S24 phone model, documented E_000_002 server-error meaning. Cloud device-list E_000_002 still needs a real-account test; manufacturer cloud live-video/P2P not yet supported. Unsigned test installer.'
+            gh release create 'joolink-windows-v1.0.7' $file --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.7 (fast-start installer EXE)' --notes 'Single setup EXE. Installs the app, .NET 8 and LibVLC locally once, with Start menu shortcut, so later launches do not extract the 216 MB portable bundle. Tested installed GUI and VLC startup on Windows CI. Original APK fixed client_id for login, email-vs-phone login field parity, login response code check and tested camera-list payload. Cloud device-list E_000_002 still needs a real-account test; manufacturer cloud live-video/P2P not yet supported. Unsigned test installer.'
           } else {
-            gh release upload 'joolink-windows-v1.0.6' $file --clobber
+            gh release upload 'joolink-windows-v1.0.7' $file --clobber
           }

@@ -53,7 +53,18 @@ internal static class Program
                     if (!object.Equals(header["phone_model"], expected))
                         throw new InvalidOperationException("Header phone model mismatch.");
                 }
-                return "OK - six vendor-style payload schemas + version 5.3.8.2 + phone model variants valid";
+                var em = JoolinkCloudClient.BuildLoginRequest("test@example.com", "dummy-secret");
+                var ph = JoolinkCloudClient.BuildLoginRequest("555001122", "dummy-secret");
+                if (em["client_id"].ToString() != JoolinkCloudClient.VendorClientId ||
+                    ph["client_id"].ToString() != JoolinkCloudClient.VendorClientId ||
+                    em["login_mode"].ToString() != "1" || ph["login_mode"].ToString() != "0" ||
+                    !em.ContainsKey("email") || em.ContainsKey("phone_no") ||
+                    !ph.ContainsKey("phone_no") || ph.ContainsKey("email"))
+                    throw new InvalidOperationException("Original APK login request parity test failed.");
+                var loginHeader = (System.Collections.Generic.Dictionary<string, object>)em["header"];
+                if (loginHeader.ContainsKey("token") || loginHeader.ContainsKey("user_id"))
+                    throw new InvalidOperationException("Login unexpectedly included session credentials.");
+                return "OK - vendor camera schema and login client_id/request parity verified";
             });
             return;
         }
@@ -106,7 +117,7 @@ internal static class Program
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "last-startup-error.txt");
             File.WriteAllText(path,
-                "HomeJoolink Windows v1.0.6 start error\n" +
+                "HomeJoolink Windows v1.0.7 start error\n" +
                 DateTimeOffset.Now.ToString("u") + "\n" + ex.ToString());
             return path;
         }

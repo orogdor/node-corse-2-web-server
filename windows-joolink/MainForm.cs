@@ -27,7 +27,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "HomeJoolink — Windows v1.0.6 TEST";
+        Text = "HomeJoolink — Windows v1.0.7 TEST";
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BG; ForeColor = TXT;
@@ -255,7 +255,7 @@ public sealed class MainForm : Form
         string name = account.Text.Trim(), secret = password.Text;
         password.Clear(); login.Enabled = false;
         cloudStatus.Text = "Ühendan tootja HTTPS-serveriga …";
-        WriteLog("Sisselogimispäring algas.");
+        WriteLog("Sisselogimispäring algas (originaal-APK client_id, päringu vorming parandatud).");
         try
         {
             session = await cloud.LoginAsync(name, secret, closing.Token);

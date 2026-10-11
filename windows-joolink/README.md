@@ -58,3 +58,14 @@ Offline inspection of the user's own original Android APK:
 - HeaderHelper.getV3Header2 uses Build.MODEL. The Windows camera request can be tested with the existing "Windows PC" identifier or the Samsung Galaxy S24 model identifier "SM-S921B"; default remains Windows PC. Login's device model remains Windows PC in this experimental client.
 - The APK's resources.arsc translates **E_000_002** to "Connection failed, server error, please try again later". The different code E_000_003 is for expired user information. The server response still does not reveal which underlying condition triggered E_000_002.
 - The app remains experimental. Do not submit account credentials or private tokens in diagnostic reports. No confirmed working manufacturer cloud live-video implementation yet.
+
+
+## Windows v1.0.7 — concrete login parity fix from the user's original APK
+
+- Inspected `LoginModelImpl.login()` bytecode in the user's own `Joolink-original-base.apk`. The manufacturer sends `PlatformConstant.ALI_LV_CLIENT_ID` as the **fixed** `client_id` in each login request. Previous Windows client instead generated a different `windows-<random>` ID for each login.
+- Windows now uses the exact **public client identifier** embedded in the original APK. The identifier is not a password or session token; this change does not copy or expose the user's credentials.
+- The original only sends the active `email` or `phone_no` field based on `login_mode`. Windows previously sent both, with the unused one empty. Corrected.
+- Validate the login server's top-level success code before accepting a returned session object.
+- CI offline schema tests verify both login modes, original APK client_id parity and camera-list payload. GUI, VLC and actual installed EXE continue to be tested on a Windows runner.
+
+**Unverified:** This is a justified request-parity fix but cannot prove Joolink cloud device-list works on a real account. `E_000_002` may persist. Manufacturer proprietary remote P2P/cloud live video remains **not implemented**. No password or token values are logged.

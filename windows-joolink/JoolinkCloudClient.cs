@@ -35,7 +35,11 @@ internal sealed class JoolinkCloudClient : IDisposable
         }
     }
 
-    private static string Id() => Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
+    // Constant app identifier used by the owner's original Joolink APK in
+    // PlatformConstant.ALI_LV_CLIENT_ID and LoginModelImpl.login().
+    // It is NOT an account secret or token. Earlier versions generated a
+    // different client_id on every login, unlike the manufacturer app.
+    internal const string VendorClientId = "2FOOMZMA6ZNH2U36ANQO";
     // The vendor's CommonUtil.getSeqno() uses a sortable local timestamp plus
     // a random numeric suffix; hexadecimal identifiers were used in v1.0.4.
     private static string SequenceNumber() =>
@@ -83,7 +87,9 @@ internal sealed class JoolinkCloudClient : IDisposable
         if (token.Length > 0) d["token"] = token;
         return d;
     }
-    public async Task<Session> LoginAsync(string account, string password, CancellationToken ct)
+    // Original LoginModelImpl.login() only sends email OR phone_no, not both;
+    // client_id comes from PlatformConstant.ALI_LV_CLIENT_ID.
+    internal static Dictionary<string, object> BuildLoginRequest(string account, string password)
     {
         if (string.IsNullOrWhiteSpace(account) || password.Length == 0)
             throw new InvalidOperationException("Sisesta konto ja parool.");
@@ -92,13 +98,21 @@ internal sealed class JoolinkCloudClient : IDisposable
         var request = new Dictionary<string, object>
         {
             ["header"] = Header(), ["login_mode"] = email ? "1" : "0",
-            ["email"] = email ? account : "", ["phone_no"] = email ? "" : account,
             ["password"] = password, ["app_version"] = VendorAppVersion,
             ["phone_model"] = "Windows PC", ["system_version"] = Environment.OSVersion.VersionString,
-            ["client_id"] = "windows-" + Id(), ["package_name"] = Package
+            ["client_id"] = VendorClientId, ["package_name"] = Package
         };
+        request[email ? "email" : "phone_no"] = account;
+        return request;
+    }
+    public async Task<Session> LoginAsync(string account, string password, CancellationToken ct)
+    {
+        var request = BuildLoginRequest(account, password);
         using var doc = await PostAsync("/v3/am/login", request, ct);
         var root = doc.RootElement;
+        string loginCode = Get(root, "error_code", "code");
+        if (loginCode.Length > 0 && !new[] { "0", "200", "ok", "success" }.Contains(loginCode, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Server lükkas sisselogimise tagasi. Kood: " + Clean(loginCode));
         var payload = Child(root, "body") ?? Child(root, "data");
         if (!payload.HasValue)
             throw new InvalidOperationException("Server ei tagastanud seanssi. Kood: " + Clean(Get(root, "error_code", "code")));
