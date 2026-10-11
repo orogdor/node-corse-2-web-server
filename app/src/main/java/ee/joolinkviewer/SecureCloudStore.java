@@ -53,10 +53,12 @@ final class SecureCloudStore {
         }catch(Exception ignored){return new JSONObject();}
     }
     private static void persist(Context ctx,JSONObject state) throws Exception{
-        byte[] nonce=new byte[12];
-        new SecureRandom().nextBytes(nonce);
+        // Android Keystore requires the provider to generate a fresh random IV.
+        // Supplying our own IV causes "Caller-provided IV not permitted".
         Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE,key(),new GCMParameterSpec(128,nonce));
+        cipher.init(Cipher.ENCRYPT_MODE,key());
+        byte[] nonce=cipher.getIV();
+        if(nonce==null||nonce.length!=12)throw new Exception("Unexpected Keystore GCM IV");
         byte[] ciphertext=cipher.doFinal(state.toString().getBytes(StandardCharsets.UTF_8));
         byte[] joined=new byte[nonce.length+ciphertext.length];
         System.arraycopy(nonce,0,joined,0,nonce.length);
