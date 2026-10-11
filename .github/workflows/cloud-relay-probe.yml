@@ -34,14 +34,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HomeJoolink-1.6.2-APK
-          path: app/build/outputs/apk/debug/HomeJoolink.apk
+          path: app/build/outputs/apk/debug/HomeJoolink-1.6.2.apk
           if-no-files-found: error
       - name: Publish HomeJoolink APK as GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="homejoolink-v1.6.2"
-          APK="app/build/outputs/apk/debug/HomeJoolink.apk"
+          APK="app/build/outputs/apk/debug/HomeJoolink-1.6.2.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
@@ -60,7 +60,7 @@ jobs:
             echo "COMMIT=${GITHUB_SHA}"
             echo "RUN_ID=${GITHUB_RUN_ID}"
             echo "RUN_URL=https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "APK_RELEASE_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/homejoolink-v1.6.2/HomeJoolink.apk"
+            echo "APK_RELEASE_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/homejoolink-v1.6.2/HomeJoolink-1.6.2.apk"
             if [ -f /tmp/homejoolink-gradle.log ]; then
               echo "BUILD_LOG_TAIL_BEGIN"
               tail -n 100 /tmp/homejoolink-gradle.log
