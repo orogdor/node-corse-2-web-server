@@ -48,6 +48,12 @@ public class InternetActivity extends Activity {
         Button login=Ui.button(this,"Ava Joolink ja logi sisse");
         login.setOnClickListener(v->openOfficialApp());
         Ui.add(joolink,login,this,12);
+        Button findBackend=Ui.secondary(this,"Uuri Joolinki servereid – ilma paroolita");
+        findBackend.setOnClickListener(v->startActivity(new Intent(this,JoolinkApiInspector.class)));
+        Ui.add(joolink,findBackend,this,8);
+        TextView scanExplain=Ui.text(this,"Loe telefonis oleva Joolinki APK serveri- ja API-viiteid. Midagi ei saadeta internetti. See ei ole veel konto sisselogimine.",12,false);
+        scanExplain.setTextColor(Ui.MUTED);
+        Ui.add(joolink,scanExplain,this,5);
         Ui.add(root,joolink,this,17);
 
         LinearLayout vpn=Ui.card(this);
