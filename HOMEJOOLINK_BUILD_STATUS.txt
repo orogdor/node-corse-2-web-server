@@ -1,0 +1,5 @@
+HOMEJOOLINK_BUILD_STATUS=failure
+COMMIT=a97000d544f8fd305c4898c8e11690a79cbd75af
+RUN_ID=38156923860
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38156923860
+APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.1/HomeJoolink.apk
