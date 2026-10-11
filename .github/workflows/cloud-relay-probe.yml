@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,3 +30,17 @@ jobs:
           name: HomeJoolink-APK
           path: app/build/outputs/apk/debug/HomeJoolink.apk
           if-no-files-found: error
+      - name: Publish HomeJoolink APK as GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="homejoolink-v1.6.1"
+          APK="app/build/outputs/apk/debug/HomeJoolink.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --title "HomeJoolink 1.6.1 — serverivideo katse" \
+              --notes "HomeJoolink eksperimentaalne Androidi testäpp. Joolinki pilvekonto sisselogimine, kaamerate loend ning KP2P/TURN ühenduse test. Pilvevideo näitamine ei ole veel valmis. ARM64, Android 8+." \
+              --prerelease --target "$GITHUB_SHA"
+          fi
