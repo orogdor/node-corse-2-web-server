@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           $app = (Resolve-Path windows-joolink/publish-installed/HomeJoolink.exe).Path
-          foreach ($mode in @('--self-test','--ui-self-test')) {
+          foreach ($mode in @('--self-test','--ui-self-test','--cloud-schema-self-test')) {
             $report = Join-Path $env:RUNNER_TEMP (($mode -replace '^--','') + '-before-install.txt')
             $p = Start-Process -FilePath $app -ArgumentList @($mode, $report) -PassThru
             if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id -Force; throw "$mode timed out" }
@@ -53,18 +53,18 @@ jobs:
         run: |
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'windows-joolink/installer/HomeJoolink.iss'
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
-          if (!(Test-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe')) { throw "Installer EXE missing" }
+          if (!(Test-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.5-Setup.exe')) { throw "Installer EXE missing" }
       - name: Silent install and launch from installed directory
         shell: pwsh
         run: |
-          $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe').Path
+          $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.5-Setup.exe').Path
           $target = Join-Path $env:RUNNER_TEMP 'HomeJoolink-installed'
           $installArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $target + '"'))
           $process = Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Silent installation failed with exit code $($process.ExitCode)" }
           $app = Join-Path $target 'HomeJoolink.exe'
           if (!(Test-Path $app)) { throw "Installed exe missing" }
-          foreach ($mode in @('--self-test','--ui-self-test')) {
+          foreach ($mode in @('--self-test','--ui-self-test','--cloud-schema-self-test')) {
             $report = Join-Path $env:RUNNER_TEMP (($mode -replace '^--','') + '-after-install.txt')
             $watch = [Diagnostics.Stopwatch]::StartNew()
             $p = Start-Process -FilePath $app -ArgumentList @($mode, $report) -PassThru
@@ -78,18 +78,18 @@ jobs:
       - name: Publish installer EXE as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-Windows-v1.0.4-Setup
-          path: windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe
+          name: HomeJoolink-Windows-v1.0.5-Setup
+          path: windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.5-Setup.exe
           retention-days: 30
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $file = 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe'
-          gh release view 'joolink-windows-v1.0.4' 2>$null | Out-Null
+          $file = 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.5-Setup.exe'
+          gh release view 'joolink-windows-v1.0.5' 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create 'joolink-windows-v1.0.4' $file --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.4 (fast-start installer EXE)' --notes 'Single setup EXE. Installs the app, .NET 8 and LibVLC locally once, with Start menu shortcut, so later launches do not extract the 216 MB portable bundle. Tested installed GUI and VLC startup on Windows CI. Cloud device-list E_000_002 may still occur; manufacturer cloud live-video/P2P not yet supported. Unsigned test installer.'
+            gh release create 'joolink-windows-v1.0.5' $file --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.5 (fast-start installer EXE)' --notes 'Single setup EXE. Installs the app, .NET 8 and LibVLC locally once, with Start menu shortcut, so later launches do not extract the 216 MB portable bundle. Tested installed GUI and VLC startup on Windows CI. Vendor APK-based V3 camera header plus open_id_app_key and Y/N flags now supported. Cloud device-list E_000_002 still needs a real-account test; manufacturer cloud live-video/P2P not yet supported. Unsigned test installer.'
           } else {
-            gh release upload 'joolink-windows-v1.0.4' $file --clobber
+            gh release upload 'joolink-windows-v1.0.5' $file --clobber
           }

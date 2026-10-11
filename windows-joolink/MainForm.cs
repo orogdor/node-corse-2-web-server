@@ -16,7 +16,7 @@ public sealed class MainForm : Form
     private readonly CancellationTokenSource closing = new();
     private JoolinkCloudClient.Session? session;
     private readonly TextBox account = new(), password = new(), url = new(), log = new();
-    private readonly ComboBox decoder = new(), transport = new(), requestMode = new();
+    private readonly ComboBox decoder = new(), transport = new(), requestMode = new(), appKey = new();
     private readonly ListBox cameras = new();
     private readonly Label cloudStatus = new(), videoStatus = new();
     private readonly Button login = new(), refresh = new();
@@ -27,7 +27,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "HomeJoolink — Windows v1.0.3 TEST";
+        Text = "HomeJoolink — Windows v1.0.5 TEST";
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BG; ForeColor = TXT;
@@ -160,11 +160,21 @@ public sealed class MainForm : Form
         requestMode.BackColor = FIELD; requestMode.ForeColor = TXT;
         requestMode.Width = 330;
         requestMode.Items.AddRange(new object[] {
-            "Tavapärane (force_query_bind = Y)",
-            "Alternatiivne (ilma force_query_bind)"
+            "Originaal: force_query_bind = Y",
+            "Originaal: force_query_bind = N"
         });
         requestMode.SelectedIndex = 0;
         panel.Controls.Add(requestMode);
+        panel.Controls.Add(TextLabel("Tootja rakenduse API võtme variant", true, 38));
+        appKey.DropDownStyle = ComboBoxStyle.DropDownList;
+        appKey.BackColor = FIELD; appKey.ForeColor = TXT; appKey.Width = 330;
+        appKey.Items.AddRange(new object[] {
+            "Joolink GP tavapärane",
+            "Joolink GP alternatiiv 1",
+            "Joolink GP alternatiiv 2"
+        });
+        appKey.SelectedIndex = 0;
+        panel.Controls.Add(appKey);
         var logout = StyledButton("Lõpeta seanss");
         logout.Click += (_, _) => { session = null; cameras.Items.Clear();
             refresh.Enabled = false; password.Clear(); cloudStatus.Text = "Seanss lõpetatud.";
@@ -258,9 +268,11 @@ public sealed class MainForm : Form
         try
         {
             var mode = requestMode.SelectedIndex == 0;
-            WriteLog("Kaameraloendi päring /v3/am/query_device_list, režiim: " +
-                     (mode ? "force_query_bind=Y" : "force_query_bind puudub"));
-            var list = await cloud.CamerasAsync(session, mode, closing.Token);
+            int variant = Math.Max(0, appKey.SelectedIndex);
+            WriteLog("Kaameraloendi päring /v3/am/query_device_list; " +
+                     (mode ? "force_query_bind=Y" : "force_query_bind=N") +
+                     "; GP-võti " + (variant + 1) + "; V3-päis; open_id_app_key kaasas");
+            var list = await cloud.CamerasAsync(session, mode, variant, closing.Token);
             if (IsDisposed) return;
             cameras.Items.Clear();
             foreach (var cam in list) cameras.Items.Add(cam);
@@ -276,7 +288,7 @@ public sealed class MainForm : Form
             WriteLog("Tagastatud väljad (ainult väljade nimed): " + ex.ResponseFields);
             WriteLog("HTTP " + ex.HttpStatus + ". Server ei kinnitanud selle päringu õnnestumist.");
             if (ex.Code == "E_000_002")
-                WriteLog("E_000_002 tähendus pole kinnitatud. Võib viidata päringu/parameetrite või seansi vastuolule; vali alternatiivne režiim.");
+                WriteLog("E_000_002 tähendus pole kinnitatud. Originaal-APK järgi kasutame nüüd open_id_app_key ja V3 päist. Vajadusel proovi teist GP võtme varianti.");
         }
         catch (Exception ex) { cloudStatus.Text = "Kaameraloendi ühenduse viga. Vaata diagnostikat.";
             WriteLog("Kaameraloendi viga: " + ex.GetType().Name + " — " + Safe(ex.Message)); }

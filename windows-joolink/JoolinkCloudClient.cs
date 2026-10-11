@@ -36,13 +36,40 @@ internal sealed class JoolinkCloudClient : IDisposable
     }
 
     private static string Id() => Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
+    // The vendor's CommonUtil.getSeqno() uses a sortable local timestamp plus
+    // a random numeric suffix; hexadecimal identifiers were used in v1.0.4.
+    private static string SequenceNumber() =>
+        DateTime.Now.ToString("yyyyMMddHHmmssfff", System.Globalization.CultureInfo.InvariantCulture)
+        + RandomNumberGenerator.GetInt32(100, 1000).ToString(
+            System.Globalization.CultureInfo.InvariantCulture);
+    // Public identifiers extracted from the owner's original vendor APK:
+    // AMManager.initQiaoanzhilianGp assigns sAliAppKey based on build variant.
+    internal static readonly string[] PublicAppKeys =
+        { "30837210", "30808266", "30816024" };
+    internal const string CameraEndpoint = "/v3/am/query_device_list";
+    internal static Dictionary<string, object> BuildCameraRequest(
+        Session session, bool forceQueryBind, int keyVariant)
+    {
+        if (keyVariant < 0 || keyVariant >= PublicAppKeys.Length)
+            throw new ArgumentOutOfRangeException(nameof(keyVariant));
+        return new Dictionary<string, object>
+        {
+            ["header"] = Header(session.UserId, session.Token),
+            ["open_id_app_key"] = PublicAppKeys[keyVariant],
+            ["force_query_bind"] = forceQueryBind ? "Y" : "N",
+            ["app_version"] = "1.0",
+            ["phone_model"] = "Windows PC",
+            ["package_name"] = Package
+        };
+    }
     private static Dictionary<string, object> Header(string user = "", string token = "")
     {
         var d = new Dictionary<string, object>
         {
-            ["seqno"] = Id(), ["package_name"] = Package,
+            ["seqno"] = SequenceNumber(), ["package_name"] = Package,
             ["client_version"] = "1.0", ["phone_model"] = "Windows PC",
-            ["language"] = "et"
+            // CommonUtil.getLanguge() maps unsupported locales to en_US.
+            ["language"] = "en_US"
         };
         if (user.Length > 0) d["user_id"] = user;
         if (token.Length > 0) d["token"] = token;
@@ -72,18 +99,15 @@ internal sealed class JoolinkCloudClient : IDisposable
             throw new InvalidOperationException("Sobiv seansitoken puudub. Kood: " + Clean(Get(root, "error_code", "code")));
         return new Session(user, token);
     }
-    public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, bool forceQueryBind, CancellationToken ct)
+    public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, bool forceQueryBind,
+        int keyVariant, CancellationToken ct)
     {
-        var request = new Dictionary<string, object>
-        {
-            ["header"] = Header(session.UserId, session.Token),
-            ["app_version"] = "1.0", ["phone_model"] = "Windows PC", ["package_name"] = Package
-        };
-        if (forceQueryBind) request["force_query_bind"] = "Y";
-        using var doc = await PostAsync("/v3/am/query_device_list", request, ct);
+        var request = BuildCameraRequest(session, forceQueryBind, keyVariant);
+        using var doc = await PostAsync(CameraEndpoint, request, ct);
         var root = doc.RootElement;
         string code = Get(root, "error_code", "code");
-        string mode = forceQueryBind ? "force_query_bind=Y" : "force_query_bind puudub";
+        string mode = (forceQueryBind ? "force_query_bind=Y" : "force_query_bind=N")
+            + ", GP-võti " + (keyVariant + 1);
         if (code.Length > 0 && !new[] { "0", "200", "ok", "success" }.Contains(code, StringComparer.OrdinalIgnoreCase))
             throw new DeviceListException(Clean(code), mode, SafeFieldNames(root), 200);
         JsonElement? devices = FindDevices(root, 0);

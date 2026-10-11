@@ -19,6 +19,32 @@ internal static class Program
             });
             return;
         }
+        if (args.Length == 2 && args[0] == "--cloud-schema-self-test")
+        {
+            WriteTest(args[1], () => {
+                var s = new JoolinkCloudClient.Session("test-user", "dummy-private-token");
+                for (int variant = 0; variant < JoolinkCloudClient.PublicAppKeys.Length; variant++)
+                for (int mode = 0; mode < 2; mode++)
+                {
+                    var payload = JoolinkCloudClient.BuildCameraRequest(s, mode == 0, variant);
+                    var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    string got = root.GetProperty("open_id_app_key").GetString()!;
+                    string force = root.GetProperty("force_query_bind").GetString()!;
+                    var h = root.GetProperty("header");
+                    var seq = h.GetProperty("seqno").GetString()!;
+                    if (got != JoolinkCloudClient.PublicAppKeys[variant] ||
+                        force != (mode == 0 ? "Y" : "N") ||
+                        h.GetProperty("user_id").GetString() != "test-user" ||
+                        h.GetProperty("token").GetString() != "dummy-private-token" ||
+                        seq.Length < 18 || !seq.All(char.IsDigit))
+                        throw new InvalidOperationException("Cloud request schema validation failed.");
+                }
+                return "OK - six vendor-style device-list payload schemas valid";
+            });
+            return;
+        }
         ApplicationConfiguration.Initialize();
         if (args.Length == 2 && args[0] == "--ui-self-test")
         {
@@ -68,7 +94,7 @@ internal static class Program
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "last-startup-error.txt");
             File.WriteAllText(path,
-                "HomeJoolink Windows v1.0.3 start error\n" +
+                "HomeJoolink Windows v1.0.5 start error\n" +
                 DateTimeOffset.Now.ToString("u") + "\n" + ex.ToString());
             return path;
         }

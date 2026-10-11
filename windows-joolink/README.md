@@ -39,3 +39,14 @@ Download `HomeJoolink-Windows-v1.0.4-Setup.exe`, run setup once. Then use the St
 The installer is a **single downloadable EXE**, but unlike v1.0.3's self-extracting runtime bundle, the installed app consists of normal files. The initial installer may take longer, but subsequent starts need not decompress the entire embedded runtime. GitHub CI tests launching the real GUI and LibVLC after installation. Windows Defender/SmartScreen can still delay first launches. This is an unsigned test installer, not a vendor application.
 
 As before, the experimental Joolink cloud device list might return E_000_002 and live video through the manufacturer's P2P/cloud network is **not implemented**.
+
+
+## Windows v1.0.5 — corrected vendor cloud list payload (unverified live)
+Inspected the account owner's `Joolink-original-base.apk` offline. 
+`NewMainPagePresenter.getDeviceList` calls `HeaderHelper.getV3Header2()` and sends `open_id_app_key` from `AMManager.sAliAppKey`, `force_query_bind` as "Y" or "N", as well as version/device/package fields. 
+`AMManager.initQiaoanzhilianGp()` contains three public GP app-key choices. 
+The previous Windows client omitted `open_id_app_key` and omitted the bind flag in the alternative mode.
+The fix adds all three GP key variants to the UI, always supplies Y/N, uses en_US fallback language and vendor-like numeric timestamp sequence identifiers. 
+A CI request-schema test validates six combinations using dummy credentials only.
+
+This improves payload parity but the result is **not yet tested against the user's account**. Never copy a real session token or password into any diagnostic logs. Remote cloud video/ThroughTek P2P integration is still incomplete.
