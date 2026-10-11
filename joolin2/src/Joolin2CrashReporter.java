@@ -14,6 +14,22 @@ public final class Joolin2CrashReporter {
 
     private Joolin2CrashReporter() {}
 
+    /**
+     * Returns true only in the isolated diagnostics process, before vendor SDK
+     * initialization. In the main process, register crash handling then run
+     * the original Joolink Application.onCreate unchanged.
+     */
+    public static boolean guard(Application application) {
+        try {
+            install(application);
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                String processName = Application.getProcessName();
+                return processName != null && processName.endsWith(":diagnostics");
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public static synchronized void install(Application application) {
         if (installed) return;
         installed = true;
