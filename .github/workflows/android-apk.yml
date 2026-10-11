@@ -40,7 +40,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: JoolinkViewer-arm64-v1.5.0
+          name: JoolinkViewer-arm64-v1.5.1
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in Releases
@@ -48,14 +48,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="joolink-viewer-v1.5.0"
+          TAG="joolink-viewer-v1.5.1"
           APK="app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.5.0.apk" --clobber
+            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.5.1.apk" --clobber
           else
-            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.5.0.apk" \
+            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.5.1.apk" \
               --target "$GITHUB_SHA" \
-              --title "Joolink Viewer 1.5.0 (Android ARM64 APK)" \
-              --notes "v1.5.0: Joolinki pilveseanss ja kaameraloend talletatakse Android Keystore AES-GCM abil; peakuval pilvekaamerad; muu, sh WiFi RTSP, asub Menuus. Pilvekaamera saab siduda olemasoleva RTSP videovooga, et vaadata ja juhtida WiFi/VPN kaudu. Joolinki enda P2P live video ei ole veel toetatud. Parooli ei salvestata." \
+              --title "Joolink Viewer 1.5.1 (Android ARM64 APK)" \
+              --notes "v1.5.1: parandatud Android Keystore AES/GCM juhusliku IV genereerimine, mis põhjustas vea Caller-provided IV not permitted. Pilvesessioon ja kaameraloend jäävad nüüd krüpteeritult meelde. Kaamera juures lisatud automaatne kahe-etapiline kohalik RTSP voogude otsing. Joolinki pilvevideo/P2P juhtimine vajavad veel eraldi arendust." \
               --latest=false
           fi
