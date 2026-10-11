@@ -1,7 +1,7 @@
 HOMEJOOLINK_BUILD_STATUS=failure
-COMMIT=26059f743c8018063bbf7035229b0bc602bde098
-RUN_ID=38158563931
-RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158563931
+COMMIT=6df25e9990e3784c7fbf3ab6d64ed72ab5b2e5ed
+RUN_ID=38158560827
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158560827
 APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.2/HomeJoolink.apk
 BUILD_LOG_TAIL_BEGIN
 
@@ -33,12 +33,12 @@ Daemon will be stopped at the end of the build
 > Task :app:processDebugManifest
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
+> Task :app:processDebugManifestForPackage
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:desugarDebugFileDependencies
-> Task :app:compressDebugAssets
-> Task :app:processDebugManifestForPackage
 > Task :app:processDebugJavaRes NO-SOURCE
+> Task :app:compressDebugAssets
 > Task :app:processDebugResources
 > Task :app:mergeDebugJavaResource
 
@@ -64,8 +64,8 @@ Unable to strip the following libraries, packaging them as they are: libc++_shar
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738672434.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738676681.json
 
-BUILD SUCCESSFUL in 1m 3s
+BUILD SUCCESSFUL in 1m 6s
 34 actionable tasks: 34 executed
 BUILD_LOG_TAIL_END
