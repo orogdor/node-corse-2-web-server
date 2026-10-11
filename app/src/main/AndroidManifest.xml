@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <queries>
+        <package android:name="com.jooan.qiaoanzhilian.gp" />
+    </queries>
     <application
         android:allowBackup="false"
         android:label="Joolink Viewer"
@@ -11,7 +14,9 @@
         android:theme="@style/AppTheme">
         <activity android:name=".PlayerActivity" android:exported="false" />
         <activity android:name=".HistoryActivity" android:exported="false" />
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".InternetActivity" android:exported="false" />
+        <activity android:name=".HomeActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
