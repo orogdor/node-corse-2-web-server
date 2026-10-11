@@ -43,7 +43,7 @@ public class JoolinkCloudLoginActivity extends Activity {
         scroll.addView(root);setContentView(scroll);root.requestApplyInsets();
         Ui.add(root,Ui.text(this,"Joolinki pilvekonto – TEST",23,true),this,3);
         TextView lead=Ui.text(this,
-            "Eksperimentaalne otseühendus Joolinki APK-st tuvastatud tootja serveriga. Kui vajutad Logi sisse, saadetakse sisestatud konto ja parool ainult HTTPS kaudu aadressile qacloudapi.jooancloud.com. Seda ei saadeta ChatGPT-le ega GitHubi; rakendus ei salvesta parooli ega tokenit. Pole veel seadmega kontrollitud.",13,false);
+            "Otsene Joolinki kontoga sisselogimine tootja HTTPS-serverisse. Parooli ei salvestata; edukas seansitoken salvestatakse krüpteeritult Android Keystore'i abil, et saaksid kaamerate nimekirja avada ilma uuesti sisse logimata. Pilvevideo vajab veel eraldi tuge.",13,false);
         lead.setTextColor(Ui.MUTED);Ui.add(root,lead,this,10);
 
         account=Ui.input(this,"Joolinki konto: e-post või telefon");
@@ -58,7 +58,7 @@ public class JoolinkCloudLoginActivity extends Activity {
         logout=Ui.secondary(this,"Tühjenda seanss");
         logout.setEnabled(false);
         logout.setOnClickListener(v->{
-            session=null;account.setText("");password.setText("");
+            session=null;SecureCloudStore.clear(this);account.setText("");password.setText("");
             login.setEnabled(true);logout.setEnabled(false);refresh.setEnabled(false);
             deviceList.removeAllViews();
             status.setText("Seanss on kustutatud.");
@@ -78,6 +78,18 @@ public class JoolinkCloudLoginActivity extends Activity {
         caveat.setTextColor(Ui.MUTED);Ui.add(root,caveat,this,16);
         Button back=Ui.secondary(this,"← Tagasi");
         back.setOnClickListener(v->finish());Ui.add(root,back,this,11);
+        restoreSavedSession();
+    }
+    private void restoreSavedSession(){
+        session=SecureCloudStore.session(this);
+        if(session==null)return;
+        account.setText(session.accountLabel);
+        password.setText("");
+        login.setEnabled(false);logout.setEnabled(true);refresh.setEnabled(true);
+        JSONArray remembered=SecureCloudStore.cameras(this);
+        status.setText("Pilvekonto on turvaliselt meeles. Salvestatud kaameraid: "+
+            remembered.length()+". Soovi korral värskenda nimekirja.");
+        showCameras(remembered);
     }
     private void doLogin(){
         if(session!=null){status.setText("Seanss juba avatud. Tühjenda see enne uuesti proovimist.");return;}
@@ -91,9 +103,15 @@ public class JoolinkCloudLoginActivity extends Activity {
             JSONArray cameras=null;String error=null;
             try{
                 created=JoolinkCloudClient.login(user,secret);
-                try{cameras=JoolinkCloudClient.devices(created);}
-                catch(Exception cameraError){error="Sisselogimine võis õnnestuda, kuid kaameraloendi päring ei töötanud: "+
-                        cameraError.getMessage();}
+                SecureCloudStore.saveSession(getApplicationContext(),created);
+                try{
+                    cameras=JoolinkCloudClient.devices(created);
+                    SecureCloudStore.saveCameras(getApplicationContext(),cameras);
+                }catch(Exception cameraError){
+                    error="Sisselogimine õnnestus ja jäi meelde, kuid kaameraloendit ei õnnestunud värskendada: "+
+                        cameraError.getMessage();
+                    cameras=SecureCloudStore.cameras(getApplicationContext());
+                }
             }catch(Exception failure){
                 error="Joolinki pilve autentimine ei õnnestunud: "+failure.getMessage();
             }
@@ -109,7 +127,8 @@ public class JoolinkCloudLoginActivity extends Activity {
                 }
                 session=finalSession;logout.setEnabled(true);login.setEnabled(false);refresh.setEnabled(true);
                 status.setText(finalError==null?
-                   "Joolinki server väljastas tokeni. Leidsin "+finalCameras.length()+" kaamerat. Tokenit ei salvestata.":
+                   "Joolinki server väljastas tokeni. Leidsin "+finalCameras.length()+
+                   " kaamerat. Seanss on Androidi turvalises salvestuses.":
                    finalError);
                 showCameras(finalCameras);
             });
@@ -123,8 +142,10 @@ public class JoolinkCloudLoginActivity extends Activity {
         work.execute(()->{
             JSONArray loaded=null;
             String error=null;
-            try{loaded=JoolinkCloudClient.devices(active);}
-            catch(Exception exception){error=exception.getMessage();}
+            try{
+                loaded=JoolinkCloudClient.devices(active);
+                SecureCloudStore.saveCameras(getApplicationContext(),loaded);
+            }catch(Exception exception){error=exception.getMessage();}
             final JSONArray finalLoaded=loaded;
             final String finalError=error;
             if(!destroyed)runOnUiThread(()->{
