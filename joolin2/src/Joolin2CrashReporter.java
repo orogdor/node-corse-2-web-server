@@ -19,6 +19,14 @@ public final class Joolin2CrashReporter {
      * initialization. In the main process, register crash handling then run
      * the original Joolink Application.onCreate unchanged.
      */
+    public static boolean isDiagnosticsProcess() {
+        try {
+            return android.os.Build.VERSION.SDK_INT >= 28 &&
+                Application.getProcessName() != null &&
+                Application.getProcessName().endsWith(":diagnostics");
+        } catch (Throwable ignored) { return false; }
+    }
+
     public static boolean guard(Application application) {
         try {
             install(application);
