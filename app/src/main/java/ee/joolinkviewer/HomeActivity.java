@@ -60,7 +60,7 @@ public class HomeActivity extends Activity {
         cameraList=Ui.vertical(this);
         Ui.add(page,cameraList,this,7);
         TextView info=Ui.text(this,
-            "Pilvekonto ja nimekiri jäävad telefoni krüpteeritult meelde. Kaamerapildi avamiseks tuleb esimesel korral valida selle kaamera RTSP-videovoog; üle mobiilse interneti on praegu vaja koduvõrgu VPN-i. Tootja P2P-videoprotokoll on järgmine arendusetapp.",12,false);
+            "Joolinki kontoga kaameraloend töötab siin. Praegu saad kaugvideot vaadata tootja ametliku Joolinki kaudu (ilma VPN-ita). HomeJoolinki sisemine videomängija toetab eraldi RTSP/HLS vooge; tootja pilvevideo vajab HomeJoolinki paketile litsentsitud Kalay või LinkVisual SDK-d.",12,false);
         info.setTextColor(Ui.MUTED);Ui.add(page,info,this,15);
         drawCached();
     }
@@ -78,7 +78,7 @@ public class HomeActivity extends Activity {
             "Kohalik WiFi / RTSP / ONVIF",
             "Internet / VPN kaugvaade",
             "Joolinki pilve diagnostika",
-            "Jooan videovahenduse katse (UID/TURN)",
+            "Pilvevideo tehniline diagnostika",
             "Värskenda kaamerad",
             "Logi pilvekontost välja"
         };
@@ -146,10 +146,15 @@ public class HomeActivity extends Activity {
             TextView desc=Ui.text(this,model+"  •  "+availability+
                 (mapped?"  •  Videovoog seotud":"  •  Videovoog pole veel seotud"),12,false);
             desc.setTextColor(Ui.MUTED);Ui.add(card,desc,this,3);
-            Button open=Ui.button(this,mapped?"▶ Vaata ja juhi":"Seadista video ja juhtimine");
+            Button official=Ui.button(this,"▶ Ava kaugvideo Joolinkis");
+            official.setOnClickListener(v->OfficialJoolinkBridge.open(this,title));
+            Ui.add(card,official,this,11);
+            TextView real=Ui.text(this,"Kaugvideo avaneb tootja Joolinki rakenduses. Seal vali "+title+".",12,false);
+            real.setTextColor(Ui.MUTED);Ui.add(card,real,this,4);
+            Button open=Ui.secondary(this,mapped?"▶ Vaata seotud RTSP/HLS voogu":"Seadista eraldi RTSP/HLS videovoog");
             open.setOnClickListener(v->openCamera(key,title));
-            Ui.add(card,open,this,11);
-            Button relay=Ui.secondary(this,"Katseta serveri kaudu videot (KP2P/TURN)");
+            Ui.add(card,open,this,6);
+            Button relay=Ui.secondary(this,"Uuri pilveühendust (diagnostika)");
             final int cameraIndex=index;
             relay.setOnClickListener(v->{
                 Intent intent=new Intent(this,CloudRelayProbeActivity.class);
