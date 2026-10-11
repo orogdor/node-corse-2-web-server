@@ -23,7 +23,15 @@ public class CloudRelayProbeActivity extends Activity {
         scroll.setBackgroundColor(Ui.BG);
         LinearLayout root=Ui.vertical(this);
         root.setPadding(Ui.dp(this,17),Ui.dp(this,22),Ui.dp(this,17),Ui.dp(this,36));
-        scroll.addView(root);setContentView(scroll);
+        root.setOnApplyWindowInsetsListener((v,insets)->{
+            int top=android.os.Build.VERSION.SDK_INT>=30?
+              insets.getInsets(android.view.WindowInsets.Type.statusBars()).top:insets.getSystemWindowInsetTop();
+            int bottom=android.os.Build.VERSION.SDK_INT>=30?
+              insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom:insets.getSystemWindowInsetBottom();
+            v.setPadding(Ui.dp(this,17),Ui.dp(this,22)+top,Ui.dp(this,17),Ui.dp(this,36)+bottom);
+            return insets;
+        });
+        scroll.addView(root);setContentView(scroll);root.requestApplyInsets();
 
         Ui.add(root,Ui.text(this,"Joolinki serverivideo katse",22,true),this,5);
         TextView help=Ui.text(this,
@@ -112,7 +120,9 @@ public class CloudRelayProbeActivity extends Activity {
                 if(!destroyed)runOnUiThread(()->result.setText(
                     "Vana KP2P serveri katse ebaõnnestus: "+failure+
                     "\nSee ei tõesta, et kaamerat ei saa Joolinki serveri kaudu vaadata. " +
-                    "Kaamera võib kasutada teistsugust TUTK videoprotokolli."));
+                    (failure.contains("HTTP 500")?"\nHTTP 500 tuli EseeCloud/dvr163 serverilt, mitte Joolinki kontoteenusest.":"")+
+                    "\nOriginaaläpp võib kasutada TUTK või LinkVisual videosüsteemi. " +
+                    "Vajuta ülal videoteekide uurimise nupule."));
             }finally {
                 if(!destroyed)runOnUiThread(()->test.setEnabled(true));
             }
