@@ -1,0 +1,61 @@
+name: Build Joolink Viewer APK
+on:
+  push:
+    branches: [joolink-viewer-public]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER" || { echo "Android sdkmanager missing"; exit 1; }
+          echo "Using $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Verify arm64-only APK
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          path = "app/build/outputs/apk/debug/app-debug.apk"
+          with zipfile.ZipFile(path) as z:
+              abis = sorted(set(s.split("/")[1] for s in z.namelist() if s.startswith("lib/") and s.endswith(".so")))
+              print("ABIs:", abis)
+              assert abis == ["arm64-v8a"], f"Expected arm64-v8a only, found: {abis}"
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JoolinkViewer-arm64-v1.0.2
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Publish directly downloadable APK in Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="joolink-viewer-v1.0.2"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.0.2.apk" --clobber
+          else
+            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.0.2.apk" \
+              --target "$GITHUB_SHA" \
+              --title "Joolink Viewer 1.0.2 (Android 64-bit APK)" \
+              --notes "Avalik 64-bitine Android APK; RTSP-kaamerate avamine koduses WiFi-vorgus. APK on debug-allkirjastusega ja kaamera mudeliga veel katsetamata." \
+              --latest=false
+          fi
