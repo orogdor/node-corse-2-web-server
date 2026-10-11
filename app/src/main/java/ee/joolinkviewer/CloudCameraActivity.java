@@ -44,10 +44,13 @@ public class CloudCameraActivity extends Activity {
         });
         scroll.addView(root);setContentView(scroll);root.requestApplyInsets();
         Ui.add(root,Ui.text(this,name,23,true),this,5);
+        Button officialVideo=Ui.button(this,"▶ Ava kaugvideo ametlikus Joolinkis");
+        officialVideo.setOnClickListener(v->OfficialJoolinkBridge.open(this,name));
+        Ui.add(root,officialVideo,this,12);
         TextView explain=Ui.text(this,
-          "See kaamera leiti sinu Joolinki pilvekontost. Video/juhtimine töötab praegu olemasoleva RTSP vooga üle koduse WiFi või VPN-i. Joolinki P2P videoprotokolli otseühendus ei ole veel implementeeritud.",13,false);
+          "Pilvekamera nimekiri tuleb Joolinki kontost. Ülemine nupp avab päris kaugvideo tootja ametlikus rakenduses. Siinne RTSP/HLS vaade töötab ainult siis, kui sul on eraldi toimiv videovoo aadress.",13,false);
         explain.setTextColor(Ui.MUTED);Ui.add(root,explain,this,5);
-        Ui.add(root,Ui.text(this,"Selle kaamera videovoog",18,true),this,16);
+        Ui.add(root,Ui.text(this,"Eraldi RTSP/HLS videovoo seadistus",18,true),this,16);
         url=Ui.input(this,"rtsp://192.168.x.x:554/live/ch00_0");
         url.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
         Ui.add(root,url,this,7);
