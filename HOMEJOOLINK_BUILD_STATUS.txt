@@ -1,7 +1,7 @@
 HOMEJOOLINK_BUILD_STATUS=success
-COMMIT=da6991d0cc387aeb83248981ccf4d2704af18150
-RUN_ID=38158482966
-RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158482966
+COMMIT=a97cf0a95e0094e2458ac2f6c2e0bea267e57277
+RUN_ID=38158512423
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158512423
 APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.1/HomeJoolink.apk
 BUILD_LOG_TAIL_BEGIN
 
@@ -53,10 +53,10 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:mergeLibDexDebug
 > Task :app:mergeProjectDexDebug
 > Task :app:mergeDebugNativeLibs
-> Task :app:mergeExtDexDebug
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeExtDexDebug
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libc++_shared.so, libvlc.so, libvlcjni.so.
@@ -64,8 +64,8 @@ Unable to strip the following libraries, packaging them as they are: libc++_shar
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738607640.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738631020.json
 
-BUILD SUCCESSFUL in 1m 2s
+BUILD SUCCESSFUL in 1m 1s
 34 actionable tasks: 34 executed
 BUILD_LOG_TAIL_END
