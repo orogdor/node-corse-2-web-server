@@ -2,7 +2,7 @@
 """Unit checks for side-by-side package name rewrite and smali hooks."""
 import pathlib,sys,tempfile
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
-from patch import hook_method,patch_manifest,guard_application_oncreate,HELPER,NEW
+from patch import hook_method,patch_manifest,guard_application_oncreate,guard_application_attach,HELPER,NEW
 
 METHODS=""".class public Lcom/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity;
 .super Landroid/app/Activity;
@@ -68,6 +68,23 @@ def test_diagnostic_guard():
     assert patched.count("return-void")==2
     print("Separate-process early Application guard passed")
 
+def test_attach_process_isolation():
+    source=""".class public Lcom/jooan/qiaoanzhilian/JooanApplication;
+.super Landroid/app/Application;
+.method protected attachBaseContext(Landroid/content/Context;)V
+    .locals 1
+    invoke-super {p0, p1}, Landroid/app/Application;->attachBaseContext(Landroid/content/Context;)V
+    return-void
+.end method
+"""
+    patched=guard_application_attach(source)
+    assert "isDiagnosticsProcess()Z" in patched
+    assert "move-result v1" in patched
+    assert ".locals 2" in patched
+    assert "if-eqz v1, :joolin2_original_attach" in patched
+    assert patched.count("attachBaseContext(Landroid/content/Context;)V")==3
+    print("Isolated attachBaseContext bypass test passed")
+
 def test_manifest():
     xml='''<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -108,5 +125,6 @@ package="com.jooan.qiaoanzhilian.gp">
 
 if __name__=="__main__":
     test_hooks()
+    test_attach_process_isolation()
     test_diagnostic_guard()
     test_manifest()
