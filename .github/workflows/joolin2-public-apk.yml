@@ -55,7 +55,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Joolin2-Decoder-Public-APK
-          path: Joolin2-Decoder-Test.apk
+          path: Joolin2-V6.apk
           if-no-files-found: error
       - name: Publish Joolin2 direct-download release
         env:
@@ -63,13 +63,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='joolin2-decoder-public-v5'
+          TAG='joolin2-decoder-public-v6'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" 'Joolin2-Decoder-Test.apk' --clobber
+            gh release upload "$TAG" 'Joolin2-V6.apk' --clobber
           else
-            gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
+            gh release create "$TAG" 'Joolin2-V6.apk' \
               --target joolin2-public \
-              --title "Joolin2 v5 – Alibaba SDK startup workaround" \
-              --notes "Joolin2 v5 TEST: bypass exactly one crashing Alibaba IoTSmart initialization call in ComponentManager.initAliLV to allow remaining Jooan account startup. This is a workaround for a missing SDK key caused by APK repackaging and may disable Alibaba camera functions. Crash diagnostics retained. Samsung login and video NOT verified. Package ee.joolin2.decoder.v5." \
+              --title "Joolin2 v6 – HTTPS cloud account fallback" \
+              --notes "Joolin2 v6 experimental Android APK. Uses independent Joolink HTTPS login and camera discovery UI when the proprietary Alibaba SDK blocks the original sign-in. Tap the pilvekonto button in diagnostics. No user password saved. Remote cloud live video is NOT supported. The original SDK-dependent login may still hang. Includes optional decoder/color choices in native video view; not tested on Samsung. Independent app ID ee.joolin2.decoder.v6." \
               --latest=false
           fi
