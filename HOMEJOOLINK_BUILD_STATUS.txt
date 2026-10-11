@@ -1,8 +1,8 @@
-HOMEJOOLINK_BUILD_STATUS=success
-COMMIT=a70e627acb534196f0439c148075fc246292eccc
-RUN_ID=38158556922
-RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158556922
-APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.1/HomeJoolink.apk
+HOMEJOOLINK_BUILD_STATUS=failure
+COMMIT=f345ba46153210fd6e016cf986a63f78acee12ae
+RUN_ID=38158567294
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158567294
+APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.2/HomeJoolink.apk
 BUILD_LOG_TAIL_BEGIN
 
 Welcome to Gradle 8.9!
@@ -33,16 +33,14 @@ Daemon will be stopped at the end of the build
 > Task :app:processDebugManifest
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
+> Task :app:processDebugManifestForPackage
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:desugarDebugFileDependencies
 > Task :app:processDebugJavaRes NO-SOURCE
 > Task :app:compressDebugAssets
-> Task :app:processDebugManifestForPackage
-> Task :app:checkDebugDuplicateClasses
-> Task :app:mergeDebugJavaResource
 > Task :app:processDebugResources
-> Task :app:mergeExtDexDebug
+> Task :app:mergeDebugJavaResource
 
 > Task :app:compileDebugJavaWithJavac
 Note: Some input files use or override a deprecated API.
@@ -50,11 +48,13 @@ Note: Recompile with -Xlint:deprecation for details.
 
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics
-> Task :app:mergeLibDexDebug
 > Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug
 > Task :app:mergeProjectDexDebug
 > Task :app:mergeDebugNativeLibs
 > Task :app:validateSigningDebug
+> Task :app:mergeExtDexDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
 
@@ -64,8 +64,8 @@ Unable to strip the following libraries, packaging them as they are: libc++_shar
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738673087.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738680741.json
 
-BUILD SUCCESSFUL in 1m 8s
+BUILD SUCCESSFUL in 1m 9s
 34 actionable tasks: 34 executed
 BUILD_LOG_TAIL_END
