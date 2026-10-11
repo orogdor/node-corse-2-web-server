@@ -55,7 +55,12 @@ def test_manifest():
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 package="com.jooan.qiaoanzhilian.gp">
 <application android:label="@string/app_name" android:name=".MainApp">
-<activity android:name=".MainActivity" />
+<activity android:name=".MainActivity">
+<intent-filter>
+<action android:name="android.intent.action.MAIN"/>
+<category android:name="android.intent.category.LAUNCHER"/>
+</intent-filter>
+</activity>
 <service android:name="com.jooan.service.Helper"/>
 <provider android:name=".Provider" android:authorities="com.jooan.qiaoanzhilian.gp.fileprovider"
  android:readPermission="com.jooan.qiaoanzhilian.gp.permission.PUSH_PROVIDER"/>
@@ -76,6 +81,10 @@ package="com.jooan.qiaoanzhilian.gp">
         assert NEW+'.permission.PUSH_PROVIDER' in text
         assert 'android:readPermission="'+NEW+'.permission.PUSH_PROVIDER"' in text
         assert 'name="com.jooan.qiaoanzhilian.gp.permission.' not in text
+        assert 'joolin2.original_launcher' in text
+        assert 'com.jooan.qiaoanzhilian.gp.MainActivity' in text
+        assert 'Joolin2DiagnosticsActivity' in text
+        assert text.count('android.intent.category.LAUNCHER')==1
     print("Independent package manifest tests passed")
 
 if __name__=="__main__":
