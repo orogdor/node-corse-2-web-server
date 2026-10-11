@@ -81,6 +81,7 @@ public class PlayerActivity extends Activity {
         LinearLayout root=Ui.vertical(this);
         root.setPadding(Ui.dp(this,12),Ui.dp(this,10),Ui.dp(this,12),Ui.dp(this,10));
         root.setBackgroundColor(Ui.BG);setContentView(root);
+        applySafeInsets(root);
         String camera=getIntent().getStringExtra("camera");
         Ui.add(root,Ui.text(this,camera==null?"Kaamerapilt":camera,20,true),this,0);
         FrameLayout frame=new FrameLayout(this);
@@ -183,6 +184,14 @@ public class PlayerActivity extends Activity {
             });
             Ui.add(controls,history,this,6);
         }
+        if(!localHistory){
+            Button retry=Ui.secondary(this,"↻ Proovi ONVIF ühendust uuesti (80, 8899 jm)");
+            retry.setOnClickListener(v->{
+                onvif=null;onvifStatus.setText("Otsin kaamera ONVIF teenust …");
+                connectOnvif();
+            });
+            Ui.add(controls,retry,this,9);
+        }
         Button back=Ui.secondary(this,"← Tagasi");
         back.setOnClickListener(v->finish());Ui.add(controls,back,this,11);
         if(!localHistory)connectOnvif();
@@ -269,11 +278,11 @@ public class PlayerActivity extends Activity {
         }
         background.execute(()->{
             try{
-                OnvifClient c=new OnvifClient(cameraIp,onvifPort,username,password);
-                c.connect();onvif=c;
+                OnvifClient c=OnvifClient.autoConnect(cameraIp,onvifPort,username,password);
+                onvif=c;
                 runOnUiThread(()->{
                     if(closed)return;
-                    onvifStatus.setText("PTZ: "+(c.supportsPtz()?"võimalik":"pole tuvastatud")+
+                    onvifStatus.setText("ONVIF port "+c.devicePort()+" • PTZ: "+(c.supportsPtz()?"võimalik":"pole tuvastatud")+
                         " • Öö: "+(c.supportsNight()?"võimalik":"pole tuvastatud"));
                     if(!c.streams.isEmpty()){
                         labels.clear();urls.clear();labels.add("Praegune voog");urls.add(streamUrl);
@@ -284,7 +293,7 @@ public class PlayerActivity extends Activity {
                     }
                 });
             }catch(Exception e){runOnUiThread(()->{
-                if(!closed)onvifStatus.setText("ONVIF ei vastanud: "+e.getMessage()+". Otsevideo võib siiski töötada.");
+                if(!closed)onvifStatus.setText("ONVIF ei ühendu: "+e.getMessage()+". RTSP otsevideo võib siiski töötada.");
             });}
         });
     }
@@ -340,13 +349,30 @@ public class PlayerActivity extends Activity {
         Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
     });}
     private void stopStream(){
-        recording=false;
         try{
             if(player!=null){
+                if(recording){
+                    try{player.getClass().getMethod("record",String.class).invoke(player,(Object)null);}catch(Exception ignored){}
+                    recording=false;
+                }
                 player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;
             }
             if(engine!=null){engine.release();engine=null;}
         }catch(Exception ignored){}
+    }
+    private void applySafeInsets(android.view.View root){
+        root.setOnApplyWindowInsetsListener((v,insets)->{
+            int top=0,bottom=0;
+            if(android.os.Build.VERSION.SDK_INT>=30){
+                android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.statusBars()|android.view.WindowInsets.Type.navigationBars());
+                top=bars.top;bottom=bars.bottom;
+            }else{
+                top=insets.getSystemWindowInsetTop();bottom=insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(Ui.dp(this,12),Ui.dp(this,10)+top,Ui.dp(this,12),Ui.dp(this,10)+bottom);
+            return insets;
+        });
+        root.requestApplyInsets();
     }
     @Override protected void onDestroy(){
         closed=true;
