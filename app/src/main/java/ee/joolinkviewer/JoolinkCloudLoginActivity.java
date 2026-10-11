@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 public class JoolinkCloudLoginActivity extends Activity {
     private TextView status;
     private EditText account,password;
-    private Button login,logout;
+    private Button login,logout,refresh;
     private LinearLayout deviceList;
     private final ExecutorService work=Executors.newSingleThreadExecutor();
     private JoolinkCloudClient.Session session;
@@ -59,11 +59,15 @@ public class JoolinkCloudLoginActivity extends Activity {
         logout.setEnabled(false);
         logout.setOnClickListener(v->{
             session=null;account.setText("");password.setText("");
-            login.setEnabled(true);logout.setEnabled(false);
+            login.setEnabled(true);logout.setEnabled(false);refresh.setEnabled(false);
             deviceList.removeAllViews();
             status.setText("Seanss on kustutatud.");
         });
         Ui.add(root,logout,this,6);
+        refresh=Ui.secondary(this,"↻ Laadi kaamerad uuesti");
+        refresh.setEnabled(false);
+        refresh.setOnClickListener(v->reloadDevices());
+        Ui.add(root,refresh,this,6);
         status=Ui.text(this,"Sisselogimist pole veel proovitud.",13,false);
         status.setTextColor(Ui.MUTED);status.setTextIsSelectable(true);
         Ui.add(root,status,this,14);
@@ -99,15 +103,38 @@ public class JoolinkCloudLoginActivity extends Activity {
             if(!destroyed)runOnUiThread(()->{
                 password.setText("");
                 if(finalSession==null){
-                    session=null;login.setEnabled(true);logout.setEnabled(false);
+                    session=null;login.setEnabled(true);logout.setEnabled(false);refresh.setEnabled(false);
                     status.setText(finalError==null?"Server ei vastanud.":finalError);
                     return;
                 }
-                session=finalSession;logout.setEnabled(true);login.setEnabled(false);
+                session=finalSession;logout.setEnabled(true);login.setEnabled(false);refresh.setEnabled(true);
                 status.setText(finalError==null?
-                   "Joolinki server väljastas tokeni. Laadisin kaameraloendi. Tokenit ei salvestata.":
+                   "Joolinki server väljastas tokeni. Leidsin "+finalCameras.length()+" kaamerat. Tokenit ei salvestata.":
                    finalError);
                 showCameras(finalCameras);
+            });
+        });
+    }
+    private void reloadDevices(){
+        final JoolinkCloudClient.Session active=session;
+        if(active==null){status.setText("Kõigepealt logi sisse.");return;}
+        refresh.setEnabled(false);
+        status.setText("Laadin Joolinki serverist kaamerate nimekirja …");
+        work.execute(()->{
+            JSONArray loaded=null;
+            String error=null;
+            try{loaded=JoolinkCloudClient.devices(active);}
+            catch(Exception exception){error=exception.getMessage();}
+            final JSONArray finalLoaded=loaded;
+            final String finalError=error;
+            if(!destroyed)runOnUiThread(()->{
+                refresh.setEnabled(session!=null);
+                if(finalError!=null){
+                    status.setText("Kaamerate värskendamine: "+finalError);
+                }else{
+                    status.setText("Kaameraloend uuendatud: "+finalLoaded.length()+" seadet.");
+                    showCameras(finalLoaded);
+                }
             });
         });
     }
@@ -126,6 +153,7 @@ public class JoolinkCloudLoginActivity extends Activity {
             JSONObject ali=item.optJSONObject("alilv_info");
             String nickname=jooan==null?"":jooan.optString("nick_name","");
             if(nickname.isEmpty()&&ali!=null)nickname=ali.optString("nickName","");
+            if(nickname.isEmpty())nickname=item.optString("device_name",item.optString("nickName",""));
             if(nickname.isEmpty())nickname="Kaamera "+(i+1);
             String model=jooan==null?"":jooan.optString("device_model","");
             if(model.isEmpty()&&ali!=null)model=ali.optString("productModel","");
