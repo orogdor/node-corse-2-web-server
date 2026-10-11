@@ -40,7 +40,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: JoolinkViewer-arm64-v1.4.0
+          name: JoolinkViewer-arm64-v1.4.1
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in Releases
@@ -48,14 +48,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="joolink-viewer-v1.4.0"
+          TAG="joolink-viewer-v1.4.1"
           APK="app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.4.0.apk" --clobber
+            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.4.1.apk" --clobber
           else
-            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.4.0.apk" \
+            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.4.1.apk" \
               --target "$GITHUB_SHA" \
-              --title "Joolink Viewer 1.4.0 (Android ARM64 APK)" \
-              --notes "Lisatud Joolinki originaalse paigaldatud APK eksport kasutaja valitud salvestuskohta; see ei loe paroole ega kasutaja kontot. Fail on mõeldud privaatseks protokolli analüüsiks. Joolinki pilvekonto autentimine ei ole endiselt implementeeritud." \
+              --title "Joolink Viewer 1.4.1 (Android ARM64 APK)" \
+              --notes "Joolink 1.4.1: parandatud GetDeviceListResponse vastuse lugemine. Originaalne APK kinnitab, et device_info_list asub JSON-i juurtasemel; eelmine v1.4.0 luges ainult body/data pesi. Uuendatud kaameraloendit saab uuesti laadida ilma uue sisselogimiseta. Pilvevideo on endiselt väljatöötamisel." \
               --latest=false
           fi
