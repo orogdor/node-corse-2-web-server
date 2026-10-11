@@ -57,7 +57,11 @@ package="com.jooan.qiaoanzhilian.gp">
 <application android:label="@string/app_name" android:name=".MainApp">
 <activity android:name=".MainActivity" />
 <service android:name="com.jooan.service.Helper"/>
-<provider android:name=".Provider" android:authorities="com.jooan.qiaoanzhilian.gp.fileprovider"/>
+<provider android:name=".Provider" android:authorities="com.jooan.qiaoanzhilian.gp.fileprovider"
+ android:readPermission="com.jooan.qiaoanzhilian.gp.permission.PUSH_PROVIDER"/>
+<permission android:name="com.jooan.qiaoanzhilian.gp.permission.JPUSH_MESSAGE"/>
+<permission android:name="com.jooan.qiaoanzhilian.gp.permission.PUSH_PROVIDER"/>
+<uses-permission android:name="com.jooan.qiaoanzhilian.gp.permission.JPUSH_MESSAGE"/>
 </application></manifest>'''
     with tempfile.TemporaryDirectory() as tmp:
         path=pathlib.Path(tmp)/"AndroidManifest.xml"
@@ -68,6 +72,10 @@ package="com.jooan.qiaoanzhilian.gp">
         assert "Joolin2" in text
         assert 'com.jooan.qiaoanzhilian.gp.MainActivity' in text
         assert NEW+'.fileprovider' in text
+        assert NEW+'.permission.JPUSH_MESSAGE' in text
+        assert NEW+'.permission.PUSH_PROVIDER' in text
+        assert 'android:readPermission="'+NEW+'.permission.PUSH_PROVIDER"' in text
+        assert 'name="com.jooan.qiaoanzhilian.gp.permission.' not in text
     print("Independent package manifest tests passed")
 
 if __name__=="__main__":
