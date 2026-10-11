@@ -1,8 +1,8 @@
-HOMEJOOLINK_BUILD_STATUS=success
-COMMIT=a97cf0a95e0094e2458ac2f6c2e0bea267e57277
-RUN_ID=38158512423
-RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158512423
-APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.1/HomeJoolink.apk
+HOMEJOOLINK_BUILD_STATUS=failure
+COMMIT=26059f743c8018063bbf7035229b0bc602bde098
+RUN_ID=38158563931
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38158563931
+APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.6.2/HomeJoolink.apk
 BUILD_LOG_TAIL_BEGIN
 
 Welcome to Gradle 8.9!
@@ -35,9 +35,9 @@ Daemon will be stopped at the end of the build
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
-> Task :app:processDebugManifestForPackage
-> Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:processDebugManifestForPackage
 > Task :app:processDebugJavaRes NO-SOURCE
 > Task :app:processDebugResources
 > Task :app:mergeDebugJavaResource
@@ -53,10 +53,10 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:mergeLibDexDebug
 > Task :app:mergeProjectDexDebug
 > Task :app:mergeDebugNativeLibs
+> Task :app:mergeExtDexDebug
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
-> Task :app:mergeExtDexDebug
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libc++_shared.so, libvlc.so, libvlcjni.so.
@@ -64,8 +64,8 @@ Unable to strip the following libraries, packaging them as they are: libc++_shar
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738631020.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791738672434.json
 
-BUILD SUCCESSFUL in 1m 1s
+BUILD SUCCESSFUL in 1m 3s
 34 actionable tasks: 34 executed
 BUILD_LOG_TAIL_END
