@@ -40,7 +40,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: JoolinkViewer-arm64-v1.1.0
+          name: JoolinkViewer-arm64-v1.1.1
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in Releases
@@ -48,14 +48,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="joolink-viewer-v1.1.0"
+          TAG="joolink-viewer-v1.1.1"
           APK="app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.1.0.apk" --clobber
+            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.1.1.apk" --clobber
           else
-            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.1.0.apk" \
+            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.1.1.apk" \
               --target "$GITHUB_SHA" \
-              --title "Joolink Viewer 1.1.0 (Android ARM64 APK)" \
-              --notes "ONVIF PTZ/oo/paev, voogude valik, kohalik ajalugu, kaamera ONVIF replay ning automaatne kaheastmeline otsing. Funktsioonid olenevad kaamera toest. Testitud GitHubi ehitusega, mitte seadmega." \
+              --title "Joolink Viewer 1.1.1 (Android ARM64 APK)" \
+              --notes "ONVIF XML-parsimise ja automaatse pordituvastuse parandus, parandatud salvestise vaade ja ekraani paigutus. ONVIF omadused solutuvad mudelist." \
               --latest=false
           fi
