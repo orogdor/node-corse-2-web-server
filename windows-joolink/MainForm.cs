@@ -18,16 +18,21 @@ public sealed class MainForm : Form
     private readonly TextBox account = new(), password = new(), url = new(), log = new();
     private readonly ComboBox decoder = new(), transport = new(), requestMode = new(), appKey = new(), phoneModel = new();
     private readonly ListBox cameras = new();
-    private readonly Label cloudStatus = new(), videoStatus = new();
+    private readonly Label cloudStatus = new(), videoStatus = new(), accountStatus = new();
     private readonly Button login = new(), refresh = new();
     private readonly Panel videoPanel = new();
     private LibVLC? lib;
     private MediaPlayer? player;
     private VideoView? view;
 
+    internal enum AccountUiState { SignedOut, SigningIn, SignedIn, Failed }
+    internal string AccountStatusText => accountStatus.Text;
+    internal string CameraStatusText => cloudStatus.Text;
+    internal const string WindowTitle = "HomeJoolink — Windows v1.0.9 TEST";
+
     public MainForm()
     {
-        Text = "HomeJoolink — Windows v1.0.8 TEST";
+        Text = WindowTitle;
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BG; ForeColor = TXT;
@@ -39,6 +44,7 @@ public sealed class MainForm : Form
         // Let WinForms center the window on the primary display. This also works
         // when an external monitor used previously has been disconnected.
         MakeUi();
+        SetAccountUiState(AccountUiState.SignedOut);
         Shown += (_, _) => {
             FitToWorkingArea();
             // Video is optional and should not prevent the main window from showing.
@@ -152,6 +158,12 @@ public sealed class MainForm : Form
         SetButton(login, "Logi Joolinki kontosse", true);
         login.Click += async (_, _) => await DoLogin();
         panel.Controls.Add(login);
+        accountStatus.Width = 330; accountStatus.Height = 66; accountStatus.Tag = 66;
+        accountStatus.TextAlign = ContentAlignment.MiddleCenter;
+        accountStatus.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+        accountStatus.BorderStyle = BorderStyle.FixedSingle;
+        accountStatus.Margin = new Padding(3, 3, 3, 12);
+        panel.Controls.Add(accountStatus);
         SetButton(refresh, "Värskenda kaameraloendit");
         refresh.Enabled = false; refresh.Click += async (_, _) => await LoadCameras();
         panel.Controls.Add(refresh);
@@ -184,7 +196,8 @@ public sealed class MainForm : Form
         panel.Controls.Add(TextLabel("Originaalse Androidi rakenduse versioon 5.3.8.2. Kui serveri viga jätkub, proovi telefonimudelit SM-S921B.", height: 85));
         var logout = StyledButton("Lõpeta seanss");
         logout.Click += (_, _) => { session = null; cameras.Items.Clear();
-            refresh.Enabled = false; password.Clear(); cloudStatus.Text = "Seanss lõpetatud.";
+            refresh.Enabled = false; password.Clear(); SetAccountUiState(AccountUiState.SignedOut);
+            SetCameraStatus("Seanss lõpetatud.");
             WriteLog("Seanss lõpetati."); };
         panel.Controls.Add(logout);
         cloudStatus.Width = 330; cloudStatus.Height = 58;
@@ -250,22 +263,60 @@ public sealed class MainForm : Form
         copy.Click += (_, _) => { if (log.Text.Length > 0) Clipboard.SetText(log.Text); };
         frame.Controls.Add(copy, 0, 2);
     }
+    // Account authentication and device-list retrieval have independent UI states.
+    internal void SetAccountUiState(AccountUiState state)
+    {
+        accountStatus.BackColor = FIELD;
+        switch (state)
+        {
+            case AccountUiState.SignedIn:
+                accountStatus.Text = "✓ Sisselogimine õnnestus!\nJoolinki konto on ühendatud.";
+                accountStatus.ForeColor = Color.FromArgb(115, 230, 159);
+                Text = WindowTitle + " — SISSE LOGITUD";
+                break;
+            case AccountUiState.SigningIn:
+                accountStatus.Text = "Joolinki kontoga ühendamine …";
+                accountStatus.ForeColor = SUB;
+                Text = WindowTitle;
+                break;
+            case AccountUiState.Failed:
+                accountStatus.Text = "Sisselogimine ebaõnnestus.\nVaata allpool veateadet.";
+                accountStatus.ForeColor = Color.FromArgb(255, 175, 131);
+                Text = WindowTitle;
+                break;
+            default:
+                accountStatus.Text = "Joolinki kontosse pole sisse logitud.";
+                accountStatus.ForeColor = SUB;
+                Text = WindowTitle;
+                break;
+        }
+    }
+    internal void SetCameraStatus(string value) => cloudStatus.Text = value;
+
     private async Task DoLogin()
     {
         string name = account.Text.Trim(), secret = password.Text;
         password.Clear(); login.Enabled = false;
-        cloudStatus.Text = "Ühendan tootja HTTPS-serveriga …";
+        // Starting a new login supersedes the previous session.
+        session = null; refresh.Enabled = false; cameras.Items.Clear();
+        SetAccountUiState(AccountUiState.SigningIn);
+        SetCameraStatus("Ühendan tootja HTTPS-serveriga …");
         WriteLog("Sisselogimispäring algas (tootja client_id, user_token eelistus).");
         try
         {
             session = await cloud.LoginAsync(name, secret, closing.Token);
             if (IsDisposed) return;
-            WriteLog("Sisselogimine õnnestus. Token ainult töömälu sees.");
+            SetAccountUiState(AccountUiState.SignedIn);
+            WriteLog("Sisselogimine õnnestus. Konto ühendatud; kaameraloendi kontroll on eraldi.");
             refresh.Enabled = true; await LoadCameras();
         }
-        catch (OperationCanceledException) { if (!IsDisposed) cloudStatus.Text = "Katkestatud."; }
-        catch (Exception ex) { cloudStatus.Text = "Sisselogimise viga: " + Safe(ex.Message);
-            WriteLog("Sisselogimise viga: " + ex.GetType().Name + " — " + Safe(ex.Message)); }
+        catch (OperationCanceledException) {
+            if (!IsDisposed) { SetAccountUiState(AccountUiState.SignedOut); SetCameraStatus("Katkestatud."); }
+        }
+        catch (Exception ex) {
+            if (!IsDisposed) { SetAccountUiState(AccountUiState.Failed); SetCameraStatus("Sisselogimise viga: " + Safe(ex.Message)); }
+            WriteLog("Sisselogimise viga: " + ex.GetType().Name + " — " + Safe(ex.Message));
+        }
         finally { if (!IsDisposed) login.Enabled = true; }
     }
     private async Task LoadCameras()
@@ -291,8 +342,8 @@ public sealed class MainForm : Form
         catch (OperationCanceledException) { if (!IsDisposed) cloudStatus.Text = "Katkestatud."; }
         catch (JoolinkCloudClient.DeviceListException ex)
         {
-            cloudStatus.Text = "Serveri kood: " + ex.Code +
-                ". Vaata diagnostikat ja proovi teist päringurežiimi.";
+            SetCameraStatus("Kaameraloendi viga: " + ex.Code +
+                ". Sisselogimine õnnestus, kuid kaameraloendit ei saadud.");
             WriteLog("Kaameraloendi vastus: " + ex.Code + ", režiim: " + ex.RequestMode);
             WriteLog("Tagastatud väljad (ainult väljade nimed): " + ex.ResponseFields);
             WriteLog("HTTP " + ex.HttpStatus + ". Server ei kinnitanud selle päringu õnnestumist.");

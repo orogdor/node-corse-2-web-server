@@ -98,7 +98,21 @@ internal static class Program
                     throw new InvalidOperationException(
                         $"UI invisible or too small: window {f.Width}x{f.Height}, " +
                         $"panels {split.Panel1.Width}x{split.Panel2.Width}");
-                string details = "OK - UI window constructed and shown, " +
+                // Regression: a failed device-list request must not hide the
+                // persistent "logged in" indicator.
+                f.SetAccountUiState(MainForm.AccountUiState.SignedIn);
+                f.SetCameraStatus("Kaameraloendi viga: E_000_002");
+                if (!f.AccountStatusText.Contains("Sisselogimine õnnestus") ||
+                    !f.CameraStatusText.Contains("E_000_002") ||
+                    !f.Text.Contains("SISSE LOGITUD"))
+                    throw new InvalidOperationException("Login success indicator lost after camera error.");
+                f.SetAccountUiState(MainForm.AccountUiState.SignedOut);
+                if (f.AccountStatusText.Contains("õnnestus") || f.Text.Contains("SISSE LOGITUD"))
+                    throw new InvalidOperationException("Login status was not cleared on logout.");
+                f.SetAccountUiState(MainForm.AccountUiState.Failed);
+                if (!f.AccountStatusText.Contains("ebaõnnestus"))
+                    throw new InvalidOperationException("Failed-login indicator missing.");
+                string details = "OK - UI login-success, camera-error and logout states tested, " +
                                  $"panels={split.Panel1.Width}/{split.Panel2.Width}";
                 f.Close();
                 return details;
@@ -134,7 +148,7 @@ internal static class Program
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "last-startup-error.txt");
             File.WriteAllText(path,
-                "HomeJoolink Windows v1.0.8 start error\n" +
+                "HomeJoolink Windows v1.0.9 start error\n" +
                 DateTimeOffset.Now.ToString("u") + "\n" + ex.ToString());
             return path;
         }

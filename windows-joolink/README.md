@@ -75,3 +75,9 @@ Offline inspection of the user's own original Android APK:
 Inspected original Joolink APK `LoginModelImpl.saveData()`: the original saves `LoginBean.getUser_token()` into `AccountManager.saveAccountInfo()`. The camera-list header later sends `AccountManager.getToken()`. HomeJoolink previously selected the generic JSON `token` field first and `user_token` only as fallback; if both were present, this could pass the wrong session credential. It now uses `user_token` first, matching the original app, falling back to `token` only when `user_token` is absent. CI exercises conflicting dummy token fields, a legacy fallback, and rejecting unsuccessful login even if a dummy body is present.
 
 It is still **unknown** whether this resolves the live `E_000_002` response. The manufacturer's cloud/P2P live video is not integrated. Passwords and token values are never included in diagnostic logs.
+
+## Windows v1.0.9 — permanent visual login confirmation
+
+The Pilvekonto tab displays a separate account status directly below the login button. After successful account authentication it shows **"✓ Sisselogimine õnnestus! Joolinki konto on ühendatud."** in green; the window title shows **SISSE LOGITUD**. Camera-list errors, including `E_000_002`, are shown separately and cannot replace this account status. A new login attempt, failure, or logout resets the state. The CI UI test simulates success followed by `E_000_002`, and checks logout and failed-login display independently.
+
+Only authentication display behavior changed. Cloud camera-list availability is still unverified, and vendor P2P/cloud live video is not implemented.
