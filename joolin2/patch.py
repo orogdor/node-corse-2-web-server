@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 
 OLD="com.jooan.qiaoanzhilian.gp"
-NEW="ee.joolin2.decoder"
+NEW="ee.joolin2.decoder.v3"
 CAMERA="com/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity.smali"
 HELPER="Lcom/jooan/qiaoanzhilian/ui/activity/play/VideoSettings;"
 CRASH="Lcom/jooan/qiaoanzhilian/ui/activity/play/Joolin2CrashReporter;"
@@ -87,7 +87,7 @@ def patch_manifest(file):
     if app is None:raise ValueError("application element absent")
     app_class=app.get(ANDROID+"name")
     if app_class:app_class=qualified(app_class)
-    app.set(ANDROID+"label","Joolin2")
+    app.set(ANDROID+"label","Joolin2 v3")
     app.set(ANDROID+"allowBackup","false")
     root.attrib.pop(ANDROID+"sharedUserId",None)
     # Interpose diagnostic launcher, forwarding normally to the original launch.
@@ -108,7 +108,7 @@ def patch_manifest(file):
     diag=ET.SubElement(app,"activity")
     diag.set(ANDROID+"name",DIAGNOSTICS)
     diag.set(ANDROID+"exported","true")
-    diag.set(ANDROID+"label","Joolin2")
+    diag.set(ANDROID+"label","Joolin2 v3")
     filt=ET.SubElement(diag,"intent-filter")
     action=ET.SubElement(filt,"action")
     action.set(ANDROID+"name","android.intent.action.MAIN")
@@ -116,8 +116,8 @@ def patch_manifest(file):
     category.set(ANDROID+"name","android.intent.category.LAUNCHER")
     tree.write(file,encoding="utf-8",xml_declaration=True)
     print("Joolin2 diagnostics launch original activity:",launcher_name)
-    return app_class
     print("Patched manifest app ID:",NEW)
+    return app_class
 
 def main():
     parser=argparse.ArgumentParser()
