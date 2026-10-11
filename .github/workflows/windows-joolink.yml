@@ -1,4 +1,4 @@
-name: Build HomeJoolink Windows x64 EXE
+name: Build HomeJoolink Windows fast-start installer
 on:
   push:
     branches: [joolink-windows-v1]
@@ -10,68 +10,85 @@ permissions:
   contents: write
 jobs:
   windows:
-    name: Build and test one Windows EXE
+    name: Build and verify Windows installer
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Publish self-contained Windows EXE
+      - name: Publish app with native VLC components as installed files
         shell: pwsh
         run: |
-          dotnet publish windows-joolink/HomeJoolink.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o windows-joolink/publish-single
-          if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
-      - name: Confirm there are no companion files
+          dotnet publish windows-joolink/HomeJoolink.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false --output windows-joolink/publish-installed
+          if ($LASTEXITCODE -ne 0) { throw "Publish failed" }
+          if (!(Test-Path windows-joolink/publish-installed/HomeJoolink.exe)) { throw "App EXE not found" }
+          $native = @(Get-ChildItem windows-joolink/publish-installed -Recurse -Filter 'libvlc.dll' -ErrorAction SilentlyContinue)
+          if ($native.Count -lt 1) { throw "VLC native files not included in published app" }
+      - name: Windows app startup and VLC test before packaging
         shell: pwsh
         run: |
-          $exe = (Resolve-Path 'windows-joolink/publish-single/HomeJoolink.exe').Path
-          $other = @(Get-ChildItem 'windows-joolink/publish-single' -File -Recurse | Where-Object { $_.FullName -ne $exe })
-          if ($other.Count -gt 0) { throw ("Not a single-file build: " + ($other.Name -join ', ')) }
-          $mb = [Math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "Single EXE $mb MB"
-      - name: Smoke-test embedded VLC with Windows executable
-        shell: pwsh
-        run: |
-          $result = Join-Path $env:RUNNER_TEMP 'homejoolink-vlc-selftest.txt'
-          $app = (Resolve-Path 'windows-joolink/publish-single/HomeJoolink.exe').Path
-          $process = Start-Process -FilePath $app -ArgumentList @('--self-test', $result) -Wait -PassThru
-          if (!(Test-Path $result)) { throw "Self-test did not produce result; exit $($process.ExitCode)" }
-          $report = Get-Content -LiteralPath $result -Raw
-          Write-Host $report
-          if ($process.ExitCode -ne 0 -or !$report.StartsWith('OK')) { throw "VLC self-test failed" }
-      - name: GUI startup smoke test (real Windows form)
-        shell: pwsh
-        run: |
-          $result = Join-Path $env:RUNNER_TEMP 'homejoolink-ui-selftest.txt'
-          $app = (Resolve-Path 'windows-joolink/publish-single/HomeJoolink.exe').Path
-          $process = Start-Process -FilePath $app -ArgumentList @('--ui-self-test', $result) -PassThru
-          if (-not $process.WaitForExit(45000)) {
-            Stop-Process -Id $process.Id -Force
-            throw 'Windows main window timed out during launch'
+          $app = (Resolve-Path windows-joolink/publish-installed/HomeJoolink.exe).Path
+          foreach ($mode in @('--self-test','--ui-self-test')) {
+            $report = Join-Path $env:RUNNER_TEMP (($mode -replace '^--','') + '-before-install.txt')
+            $p = Start-Process -FilePath $app -ArgumentList @($mode, $report) -PassThru
+            if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id -Force; throw "$mode timed out" }
+            if (!(Test-Path $report)) { throw "$mode did not write test report" }
+            $result = Get-Content $report -Raw
+            Write-Host $result
+            if ($p.ExitCode -ne 0 -or !$result.StartsWith('OK')) { throw "$mode failed" }
           }
-          if (!(Test-Path $result)) { throw "UI startup created no report; exit $($process.ExitCode)" }
-          $report = Get-Content -LiteralPath $result -Raw
-          Write-Host $report
-          if ($process.ExitCode -ne 0 -or !$report.StartsWith('OK')) { throw 'Windows GUI startup test failed' }
-      - name: Prepare standalone EXE
+      - name: Install Inno Setup compiler if not present
         shell: pwsh
-        run: Copy-Item 'windows-joolink/publish-single/HomeJoolink.exe' 'HomeJoolink-Windows-v1.0.3.exe'
-      - name: Upload EXE as CI artifact
+        run: |
+          $compiler = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress --limit-output
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+          }
+          if (!(Test-Path $compiler)) { throw "Inno Setup compiler missing" }
+      - name: Build standalone installer EXE
+        shell: pwsh
+        run: |
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' 'windows-joolink/installer/HomeJoolink.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+          if (!(Test-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe')) { throw "Installer EXE missing" }
+      - name: Silent install and launch from installed directory
+        shell: pwsh
+        run: |
+          $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe').Path
+          $target = Join-Path $env:RUNNER_TEMP 'HomeJoolink-installed'
+          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$target"
+          if ($LASTEXITCODE -ne 0) { throw "Silent installation failed with $LASTEXITCODE" }
+          $app = Join-Path $target 'HomeJoolink.exe'
+          if (!(Test-Path $app)) { throw "Installed exe missing" }
+          foreach ($mode in @('--self-test','--ui-self-test')) {
+            $report = Join-Path $env:RUNNER_TEMP (($mode -replace '^--','') + '-after-install.txt')
+            $watch = [Diagnostics.Stopwatch]::StartNew()
+            $p = Start-Process -FilePath $app -ArgumentList @($mode, $report) -PassThru
+            if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id -Force; throw "Installed $mode timed out" }
+            $watch.Stop()
+            if (!(Test-Path $report)) { throw "Installed $mode did not write test report" }
+            $result = Get-Content $report -Raw
+            Write-Host "$mode / $([math]::Round($watch.Elapsed.TotalSeconds,2))s / $result"
+            if ($p.ExitCode -ne 0 -or !$result.StartsWith('OK')) { throw "Installed $mode failed" }
+          }
+      - name: Publish installer EXE as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-Windows-v1.0.3-EXE
-          path: HomeJoolink-Windows-v1.0.3.exe
+          name: HomeJoolink-Windows-v1.0.4-Setup
+          path: windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe
           retention-days: 30
-      - name: Publish public GitHub EXE release
+      - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view 'joolink-windows-v1.0.3' 2>$null | Out-Null
+          $file = 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe'
+          gh release view 'joolink-windows-v1.0.4' 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create 'joolink-windows-v1.0.3' 'HomeJoolink-Windows-v1.0.3.exe' --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.3 (single EXE TEST)' --notes 'Windows x64 standalone EXE. Windows GUI startup check, crash log on failure, primary screen centering, safe E_000_002 diagnostics. No ZIP required. Bundled .NET 8 + LibVLC. App includes experimental Joolink cloud login/camera list and RTSP/HTTP media player. Manufacturer cloud live-video/P2P protocol is NOT implemented. Unsigned test application.'
+            gh release create 'joolink-windows-v1.0.4' $file --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.4 (fast-start installer EXE)' --notes 'Single setup EXE. Installs the app, .NET 8 and LibVLC locally once, with Start menu shortcut, so later launches do not extract the 216 MB portable bundle. Tested installed GUI and VLC startup on Windows CI. Cloud device-list E_000_002 may still occur; manufacturer cloud live-video/P2P not yet supported. Unsigned test installer.'
           } else {
-            gh release upload 'joolink-windows-v1.0.3' 'HomeJoolink-Windows-v1.0.3.exe' --clobber
+            gh release upload 'joolink-windows-v1.0.4' $file --clobber
           }

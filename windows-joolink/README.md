@@ -31,3 +31,11 @@ There is a --self-test <outputfile> mode used during the CI Windows build to ver
 - EXE has an additional --ui-self-test mode that constructs and displays the real WinForms UI on Windows.
 - Start errors show a message and write %LOCALAPPDATA%\\HomeJoolink\\last-startup-error.txt.
 - GitHub Actions verifies actual main-window construction in addition to VLC initialization. Real camera-cloud live video is still not supported.
+
+## Windows v1.0.4 - quick-start via one EXE installer
+
+Download `HomeJoolink-Windows-v1.0.4-Setup.exe`, run setup once. Then use the Start menu HomeJoolink shortcut to start the installed app. Installer includes all .NET and VLC files, installed under the user's LocalAppData/Programs/HomeJoolink. Uninstall is available in Windows Settings -> Apps.
+
+The installer is a **single downloadable EXE**, but unlike v1.0.3's self-extracting runtime bundle, the installed app consists of normal files. The initial installer may take longer, but subsequent starts need not decompress the entire embedded runtime. GitHub CI tests launching the real GUI and LibVLC after installation. Windows Defender/SmartScreen can still delay first launches. This is an unsigned test installer, not a vendor application.
+
+As before, the experimental Joolink cloud device list might return E_000_002 and live video through the manufacturer's P2P/cloud network is **not implemented**.
