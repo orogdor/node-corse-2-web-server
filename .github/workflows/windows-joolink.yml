@@ -59,8 +59,9 @@ jobs:
         run: |
           $installer = (Resolve-Path 'windows-joolink/installer/dist/HomeJoolink-Windows-v1.0.4-Setup.exe').Path
           $target = Join-Path $env:RUNNER_TEMP 'HomeJoolink-installed'
-          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$target"
-          if ($LASTEXITCODE -ne 0) { throw "Silent installation failed with $LASTEXITCODE" }
+          $installArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ('/DIR="' + $target + '"'))
+          $process = Start-Process -FilePath $installer -ArgumentList $installArgs -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Silent installation failed with exit code $($process.ExitCode)" }
           $app = Join-Path $target 'HomeJoolink.exe'
           if (!(Test-Path $app)) { throw "Installed exe missing" }
           foreach ($mode in @('--self-test','--ui-self-test')) {
