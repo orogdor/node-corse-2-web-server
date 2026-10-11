@@ -66,10 +66,20 @@ def patch_manifest(file):
             if item.tag=="activity-alias":
                 target=item.get(ANDROID+"targetActivity")
                 if target:item.set(ANDROID+"targetActivity",qualified(target))
-        # Ensure authorities do not collide with original app.
-        auth=item.get(ANDROID+"authorities")
-        if auth and OLD in auth:
-            item.set(ANDROID+"authorities",auth.replace(OLD,NEW))
+        # Installing alongside the genuine Joolink must not declare any of its
+        # custom permissions: Android rejects duplicate permission owners.
+        if item.tag in {"permission","permission-group","permission-tree",
+                        "uses-permission","uses-permission-sdk-23",
+                        "uses-permission-sdk-m"}:
+            original=item.get(ANDROID+"name")
+            if original and original.startswith(OLD+"."):
+                item.set(ANDROID+"name",NEW+original[len(OLD):])
+        # Also update permission references and all provider authority names.
+        for key in ("authorities","permission","readPermission","writePermission"):
+            attr=ANDROID+key
+            value=item.get(attr)
+            if value and OLD in value:
+                item.set(attr,value.replace(OLD,NEW))
     root.set("package",NEW)
     app=root.find("application")
     if app is None:raise ValueError("application element absent")
