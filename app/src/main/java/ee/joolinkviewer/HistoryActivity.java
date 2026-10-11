@@ -40,6 +40,15 @@ public class HistoryActivity extends Activity {
         content=Ui.vertical(this);
         content.setPadding(Ui.dp(this,16),Ui.dp(this,16),Ui.dp(this,16),Ui.dp(this,24));
         scroll.addView(content);setContentView(scroll);
+        content.setOnApplyWindowInsetsListener((v,insets)->{
+            int top=android.os.Build.VERSION.SDK_INT>=30?
+                insets.getInsets(android.view.WindowInsets.Type.statusBars()).top:insets.getSystemWindowInsetTop();
+            int bottom=android.os.Build.VERSION.SDK_INT>=30?
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom:insets.getSystemWindowInsetBottom();
+            v.setPadding(Ui.dp(this,16),Ui.dp(this,16)+top,Ui.dp(this,16),Ui.dp(this,24)+bottom);
+            return insets;
+        });
+        content.requestApplyInsets();
         Ui.add(content,Ui.text(this,"Kaamera ajalugu",23,true),this,0);
         TextView intro=Ui.text(this,"Kohalikud videod ja võimalusel ONVIF salvestused kaamera mälukaardilt.",13,false);
         intro.setTextColor(Ui.MUTED);Ui.add(content,intro,this,3);
@@ -116,7 +125,7 @@ public class HistoryActivity extends Activity {
             button.setOnClickListener(v->startPlayer("Telefonis salvestatud",Uri.fromFile(f).toString(),true));
             Ui.add(localList,button,this,6);count++;if(count>=150)break;
         }
-        localStatus.setText(count==0?"Valitud perioodil salvestisi ei ole.":count+" salvestist (uusimad esimesena).");
+        localStatus.setText(count==0?"Valitud perioodil salvestisi ei ole.":count+" salvestist (uusimad esimesena). Puuduta salvestist selle avamiseks.");
     }
     @Override protected void onResume(){super.onResume();if(localList!=null)refreshLocal();}
     private void refreshRemote(){
@@ -127,15 +136,15 @@ public class HistoryActivity extends Activity {
         remoteStatus.setText("Ühendan ONVIF Recording/Replay teenustega …");
         new Thread(()->{
             try{
-                OnvifClient c=new OnvifClient(cameraIp,port,user,pass);c.connect();
+                OnvifClient c=OnvifClient.autoConnect(cameraIp,port,user,pass);
                 if(!c.recordingAvailable){
-                    showRemoteMessage("Kaamera ei väljasta ONVIF Recording ja Replay teenuseid. Kohalikke salvestisi saab siiski vaadata.");
+                    showRemoteMessage("ONVIF port "+c.devicePort()+" ühendus korras, aga kaamera ei paku Recording/Replay teenuseid. SD-kaardi arhiiv vajab tootja liidest. Telefoni videod töötavad eraldi.");
                     return;
                 }
                 List<OnvifClient.RemoteRecording> items=c.recordings();
                 if(closed)return;
                 runOnUiThread(()->{
-                    remoteStatus.setText(items.isEmpty()?"Kaamera ei tagastanud salvestisi.":"Leidsin "+items.size()+" ONVIF salvestist. Kuupäevavalik sõltub kaamera Replay toest.");
+                    remoteStatus.setText(items.isEmpty()?"ONVIF port "+c.devicePort()+" ei tagastanud salvestisi.":"Leidsin "+items.size()+" ONVIF arhiivivoogu (port "+c.devicePort()+").");
                     for(OnvifClient.RemoteRecording item:items){
                         Button b=Ui.secondary(this,"▶ "+item.name+" (kaamera arhiiv)");
                         b.setOnClickListener(v->startPlayer(item.name,RtspNetwork.withCredentials(item.uri,user,pass),false));
