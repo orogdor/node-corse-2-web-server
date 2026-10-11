@@ -70,7 +70,7 @@ public sealed class MainForm : Form
     }
     private void MakeUi()
     {
-        var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 400,
+        var split = new SplitContainer { Dock = DockStyle.Fill, Size = new Size(1180, 690), SplitterDistance = 400,
             Panel1MinSize = 335, Panel2MinSize = 470 };
         Controls.Add(split);
         var tabs = new TabControl { Dock = DockStyle.Fill };
