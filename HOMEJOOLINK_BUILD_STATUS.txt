@@ -1,7 +1,7 @@
 HOMEJOOLINK_BUILD_STATUS=success
-COMMIT=8b967192320660f3dc60a1d88a7d3303fa5e2552
-RUN_ID=38162171377
-RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38162171377
+COMMIT=b75c74be8e4def44640e0ff935bc070e39cee158
+RUN_ID=38162197981
+RUN_URL=https://github.com/orogdor/node-corse-2-web-server/actions/runs/38162197981
 APK_RELEASE_URL=https://github.com/orogdor/node-corse-2-web-server/releases/download/homejoolink-v1.7.0/HomeJoolink-1.7.0.apk
 BUILD_LOG_TAIL_BEGIN
 
@@ -38,13 +38,9 @@ Daemon will be stopped at the end of the build
 > Task :app:desugarDebugFileDependencies
 > Task :app:processDebugJavaRes NO-SOURCE
 > Task :app:compressDebugAssets
-> Task :app:mergeDebugJavaResource
-> Task :app:mergeDebugJniLibFolders
-> Task :app:checkDebugDuplicateClasses
 > Task :app:processDebugManifestForPackage
-> Task :app:mergeDebugNativeLibs
 > Task :app:processDebugResources
-> Task :app:mergeExtDexDebug
+> Task :app:mergeDebugJavaResource
 
 > Task :app:compileDebugJavaWithJavac
 Note: Some input files use or override a deprecated API.
@@ -52,20 +48,24 @@ Note: Recompile with -Xlint:deprecation for details.
 
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
 > Task :app:mergeLibDexDebug
 > Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugNativeLibs
+> Task :app:mergeExtDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libc++_shared.so, libvlc.so, libvlcjni.so.
 
-> Task :app:validateSigningDebug
-> Task :app:writeDebugAppMetadata
-> Task :app:writeDebugSigningConfigVersions
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791741803887.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791741816711.json
 
-BUILD SUCCESSFUL in 1m
+BUILD SUCCESSFUL in 1m 5s
 34 actionable tasks: 34 executed
 BUILD_LOG_TAIL_END
