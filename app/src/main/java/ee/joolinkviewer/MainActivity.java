@@ -35,6 +35,15 @@ public class MainActivity extends Activity {
         base=Ui.vertical(this);
         base.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,36));
         scroll.addView(base);setContentView(scroll);
+        base.setOnApplyWindowInsetsListener((v,insets)->{
+            int top=android.os.Build.VERSION.SDK_INT>=30?
+                insets.getInsets(android.view.WindowInsets.Type.statusBars()).top:insets.getSystemWindowInsetTop();
+            int bottom=android.os.Build.VERSION.SDK_INT>=30?
+                insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom:insets.getSystemWindowInsetBottom();
+            v.setPadding(Ui.dp(this,18),Ui.dp(this,18)+top,Ui.dp(this,18),Ui.dp(this,36)+bottom);
+            return insets;
+        });
+        base.requestApplyInsets();
         Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.1",25,true),this,0);
         TextView sub=Ui.text(this,"Otse WiFi-võrgust • ONVIF juhtimine • videovoogude valik",13,false);
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
@@ -155,14 +164,15 @@ public class MainActivity extends Activity {
         final int port=onvifPort();
         final String user=userInput.getText().toString().trim(),pass=passInput.getText().toString();
         profileButton.setEnabled(false);
-        profilesList.removeAllViews();notifyText("Ühendan ONVIF teenusega: "+ip+":"+port+" …");
+        profilesList.removeAllViews();notifyText("Otsin ONVIF teenust: "+ip+" (proovin ka porti 8899) …");
         new Thread(()->{
             try{
-                OnvifClient c=new OnvifClient(ip,port,user,pass);
-                c.connect();
+                OnvifClient c=OnvifClient.autoConnect(ip,port,user,pass);
                 if(!destroyed)runOnUiThread(()->{
                     profileButton.setEnabled(true);
-                    notifyText(c.streams.isEmpty()?"ONVIF leitud, aga RTSP vooge ei tagastatud.":"ONVIF ühendus: "+c.streams.size()+" videovoogu; PTZ="+c.ptzAvailable+"; öörežiim="+c.imagingAvailable);
+                    onvifPortInput.setText(String.valueOf(c.devicePort()));
+                    notifyText(c.streams.isEmpty()?"ONVIF port "+c.devicePort()+" leitud, aga RTSP vooge ei tagastatud.":
+                        "ONVIF port "+c.devicePort()+": "+c.streams.size()+" videovoogu; PTZ="+c.ptzAvailable+"; öörežiim="+c.imagingAvailable);
                     for(OnvifClient.Stream s:c.streams){
                         Button choose=Ui.secondary(this,"Vali: "+s.name);
                         choose.setOnClickListener(v->{urlInput.setText(s.url);notifyText("Valitud "+s.name);});
