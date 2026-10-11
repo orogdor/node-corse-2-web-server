@@ -2,7 +2,7 @@ name: Build HomeJoolink Android APK
 on:
   push:
     branches:
-      - joolink-cloud-relay-probe
+      - homejoolink-v1.7
   workflow_dispatch:
 
 jobs:
@@ -29,25 +29,25 @@ jobs:
           gradle :app:assembleDebug --no-daemon --stacktrace > /tmp/homejoolink-gradle.log 2>&1 || { tail -n 120 /tmp/homejoolink-gradle.log; exit 1; }
           tail -n 20 /tmp/homejoolink-gradle.log
       - name: Rename Android APK
-        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/HomeJoolink-1.6.2.apk
+        run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/HomeJoolink-1.7.0.apk
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-1.6.2-APK
-          path: app/build/outputs/apk/debug/HomeJoolink-1.6.2.apk
+          name: HomeJoolink-1.7.0-APK
+          path: app/build/outputs/apk/debug/HomeJoolink-1.7.0.apk
           if-no-files-found: error
       - name: Publish HomeJoolink APK as GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="homejoolink-v1.6.2"
-          APK="app/build/outputs/apk/debug/HomeJoolink-1.6.2.apk"
+          TAG="homejoolink-v1.7.0"
+          APK="app/build/outputs/apk/debug/HomeJoolink-1.7.0.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" \
-              --title "HomeJoolink 1.6.2 — videoprotokolli diagnostika" \
-              --notes "HomeJoolinki katserakendus. Sisselogimine, kaamerad ja Joolinki originaaläpi TUTK/KP2P/LinkVisual videoteekide diagnostika. Pilvevideo näitamine ei ole veel valmis. ARM64, Android 8+." \
+              --title "HomeJoolink 1.7.0 — kaugvideo avamine" \
+              --notes "Joolinki kontoga sisselogimine ja pilvekaamerate nimekiri. Kaugvideo avatakse tootja ametlikus Joolinki äpis (ei kuvata HomeJoolinki sees). Eraldi RTSP/HLS mängija. ARM64, Android 8+." \
               --prerelease --target "$GITHUB_SHA"
           fi
       - name: Save build result for diagnostics
@@ -60,7 +60,7 @@ jobs:
             echo "COMMIT=${GITHUB_SHA}"
             echo "RUN_ID=${GITHUB_RUN_ID}"
             echo "RUN_URL=https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "APK_RELEASE_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/homejoolink-v1.6.2/HomeJoolink-1.6.2.apk"
+            echo "APK_RELEASE_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/homejoolink-v1.7.0/HomeJoolink-1.7.0.apk"
             if [ -f /tmp/homejoolink-gradle.log ]; then
               echo "BUILD_LOG_TAIL_BEGIN"
               tail -n 100 /tmp/homejoolink-gradle.log
