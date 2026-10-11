@@ -50,3 +50,11 @@ The fix adds all three GP key variants to the UI, always supplies Y/N, uses en_U
 A CI request-schema test validates six combinations using dummy credentials only.
 
 This improves payload parity but the result is **not yet tested against the user's account**. Never copy a real session token or password into any diagnostic logs. Remote cloud video/ThroughTek P2P integration is still incomplete.
+
+## Windows v1.0.6 — closer to original APK request version and error semantics
+
+Offline inspection of the user's own original Android APK:
+- The AndroidManifest.xml declares versionName **5.3.8.2** (not 1.0). The original GetDeviceList header uses AppUtil.getAppVersionName for client_version and app_version in the request body. Both are now 5.3.8.2, including the login request's app_version.
+- HeaderHelper.getV3Header2 uses Build.MODEL. The Windows camera request can be tested with the existing "Windows PC" identifier or the Samsung Galaxy S24 model identifier "SM-S921B"; default remains Windows PC. Login's device model remains Windows PC in this experimental client.
+- The APK's resources.arsc translates **E_000_002** to "Connection failed, server error, please try again later". The different code E_000_003 is for expired user information. The server response still does not reveal which underlying condition triggered E_000_002.
+- The app remains experimental. Do not submit account credentials or private tokens in diagnostic reports. No confirmed working manufacturer cloud live-video implementation yet.

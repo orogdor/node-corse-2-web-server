@@ -16,7 +16,7 @@ public sealed class MainForm : Form
     private readonly CancellationTokenSource closing = new();
     private JoolinkCloudClient.Session? session;
     private readonly TextBox account = new(), password = new(), url = new(), log = new();
-    private readonly ComboBox decoder = new(), transport = new(), requestMode = new(), appKey = new();
+    private readonly ComboBox decoder = new(), transport = new(), requestMode = new(), appKey = new(), phoneModel = new();
     private readonly ListBox cameras = new();
     private readonly Label cloudStatus = new(), videoStatus = new();
     private readonly Button login = new(), refresh = new();
@@ -27,7 +27,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "HomeJoolink — Windows v1.0.5 TEST";
+        Text = "HomeJoolink — Windows v1.0.6 TEST";
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BG; ForeColor = TXT;
@@ -175,6 +175,13 @@ public sealed class MainForm : Form
         });
         appKey.SelectedIndex = 0;
         panel.Controls.Add(appKey);
+        panel.Controls.Add(TextLabel("Kaamerapäringu seadmemudel (katse)", true, 45));
+        phoneModel.DropDownStyle = ComboBoxStyle.DropDownList;
+        phoneModel.BackColor = FIELD; phoneModel.ForeColor = TXT; phoneModel.Width = 330;
+        phoneModel.Items.AddRange(new object[] { "Windows PC (senine)", "Samsung Galaxy S24 (SM-S921B)" });
+        phoneModel.SelectedIndex = 0;
+        panel.Controls.Add(phoneModel);
+        panel.Controls.Add(TextLabel("Originaalse Androidi rakenduse versioon 5.3.8.2. Kui serveri viga jätkub, proovi telefonimudelit SM-S921B.", height: 85));
         var logout = StyledButton("Lõpeta seanss");
         logout.Click += (_, _) => { session = null; cameras.Items.Clear();
             refresh.Enabled = false; password.Clear(); cloudStatus.Text = "Seanss lõpetatud.";
@@ -269,10 +276,12 @@ public sealed class MainForm : Form
         {
             var mode = requestMode.SelectedIndex == 0;
             int variant = Math.Max(0, appKey.SelectedIndex);
+            int model = Math.Max(0, phoneModel.SelectedIndex);
             WriteLog("Kaameraloendi päring /v3/am/query_device_list; " +
                      (mode ? "force_query_bind=Y" : "force_query_bind=N") +
-                     "; GP-võti " + (variant + 1) + "; V3-päis; open_id_app_key kaasas");
-            var list = await cloud.CamerasAsync(session, mode, variant, closing.Token);
+                     "; GP-võti " + (variant + 1) + "; V3-päis; open_id_app_key kaasas; versioon 5.3.8.2; phone_model=" +
+                     JoolinkCloudClient.RequestPhoneModels[model]);
+            var list = await cloud.CamerasAsync(session, mode, variant, model, closing.Token);
             if (IsDisposed) return;
             cameras.Items.Clear();
             foreach (var cam in list) cameras.Items.Add(cam);
@@ -288,7 +297,7 @@ public sealed class MainForm : Form
             WriteLog("Tagastatud väljad (ainult väljade nimed): " + ex.ResponseFields);
             WriteLog("HTTP " + ex.HttpStatus + ". Server ei kinnitanud selle päringu õnnestumist.");
             if (ex.Code == "E_000_002")
-                WriteLog("E_000_002 tähendus pole kinnitatud. Originaal-APK järgi kasutame nüüd open_id_app_key ja V3 päist. Vajadusel proovi teist GP võtme varianti.");
+                WriteLog("E_000_002: tootja APK teade on 'Connection failed, server error, please try again later'. See ei tõesta, kas probleem on päringus või serveris.");
         }
         catch (Exception ex) { cloudStatus.Text = "Kaameraloendi ühenduse viga. Vaata diagnostikat.";
             WriteLog("Kaameraloendi viga: " + ex.GetType().Name + " — " + Safe(ex.Message)); }

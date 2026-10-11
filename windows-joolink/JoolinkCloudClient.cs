@@ -46,28 +46,36 @@ internal sealed class JoolinkCloudClient : IDisposable
     // AMManager.initQiaoanzhilianGp assigns sAliAppKey based on build variant.
     internal static readonly string[] PublicAppKeys =
         { "30837210", "30808266", "30816024" };
+    // APK AndroidManifest.xml: versionName="5.3.8.2" (the original Google Play Joolink app).
+    internal const string VendorAppVersion = "5.3.8.2";
+    // The real Android app uses Build.MODEL; offer an explicit local test variant.
+    // Different account/device models can use different model identifiers.
+    internal static readonly string[] RequestPhoneModels = { "Windows PC", "SM-S921B" };
     internal const string CameraEndpoint = "/v3/am/query_device_list";
     internal static Dictionary<string, object> BuildCameraRequest(
-        Session session, bool forceQueryBind, int keyVariant)
+        Session session, bool forceQueryBind, int keyVariant, int modelVariant = 0)
     {
         if (keyVariant < 0 || keyVariant >= PublicAppKeys.Length)
             throw new ArgumentOutOfRangeException(nameof(keyVariant));
+        if (modelVariant < 0 || modelVariant >= RequestPhoneModels.Length)
+            throw new ArgumentOutOfRangeException(nameof(modelVariant));
+        string phoneModel = RequestPhoneModels[modelVariant];
         return new Dictionary<string, object>
         {
-            ["header"] = Header(session.UserId, session.Token),
+            ["header"] = Header(session.UserId, session.Token, phoneModel),
             ["open_id_app_key"] = PublicAppKeys[keyVariant],
             ["force_query_bind"] = forceQueryBind ? "Y" : "N",
-            ["app_version"] = "1.0",
-            ["phone_model"] = "Windows PC",
+            ["app_version"] = VendorAppVersion,
+            ["phone_model"] = phoneModel,
             ["package_name"] = Package
         };
     }
-    private static Dictionary<string, object> Header(string user = "", string token = "")
+    private static Dictionary<string, object> Header(string user = "", string token = "", string phoneModel = "Windows PC")
     {
         var d = new Dictionary<string, object>
         {
             ["seqno"] = SequenceNumber(), ["package_name"] = Package,
-            ["client_version"] = "1.0", ["phone_model"] = "Windows PC",
+            ["client_version"] = VendorAppVersion, ["phone_model"] = phoneModel,
             // CommonUtil.getLanguge() maps unsupported locales to en_US.
             ["language"] = "en_US"
         };
@@ -85,7 +93,7 @@ internal sealed class JoolinkCloudClient : IDisposable
         {
             ["header"] = Header(), ["login_mode"] = email ? "1" : "0",
             ["email"] = email ? account : "", ["phone_no"] = email ? "" : account,
-            ["password"] = password, ["app_version"] = "1.0",
+            ["password"] = password, ["app_version"] = VendorAppVersion,
             ["phone_model"] = "Windows PC", ["system_version"] = Environment.OSVersion.VersionString,
             ["client_id"] = "windows-" + Id(), ["package_name"] = Package
         };
@@ -100,14 +108,14 @@ internal sealed class JoolinkCloudClient : IDisposable
         return new Session(user, token);
     }
     public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, bool forceQueryBind,
-        int keyVariant, CancellationToken ct)
+        int keyVariant, int modelVariant, CancellationToken ct)
     {
-        var request = BuildCameraRequest(session, forceQueryBind, keyVariant);
+        var request = BuildCameraRequest(session, forceQueryBind, keyVariant, modelVariant);
         using var doc = await PostAsync(CameraEndpoint, request, ct);
         var root = doc.RootElement;
         string code = Get(root, "error_code", "code");
         string mode = (forceQueryBind ? "force_query_bind=Y" : "force_query_bind=N")
-            + ", GP-võti " + (keyVariant + 1);
+            + ", GP-võti " + (keyVariant + 1) + ", telefon: " + RequestPhoneModels[modelVariant];
         if (code.Length > 0 && !new[] { "0", "200", "ok", "success" }.Contains(code, StringComparer.OrdinalIgnoreCase))
             throw new DeviceListException(Clean(code), mode, SafeFieldNames(root), 200);
         JsonElement? devices = FindDevices(root, 0);

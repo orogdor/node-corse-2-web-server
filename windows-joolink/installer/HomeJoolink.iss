@@ -2,14 +2,14 @@
 ; into a single INSTALLER exe. After installation, app launches without extracting
 ; a ~216 MB runtime bundle every time.
 #define AppName "HomeJoolink"
-#define AppVersion "1.0.5"
+#define AppVersion "1.0.6"
 #define ExeName "HomeJoolink.exe"
 
 [Setup]
 AppId=HomeJoolink.Windows.Test
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName=HomeJoolink 1.0.5 (Windows TEST)
+AppVerName=HomeJoolink 1.0.6 (Windows TEST)
 AppPublisher=HomeJoolink (community test)
 DefaultDirName={localappdata}\Programs\HomeJoolink
 DefaultGroupName=HomeJoolink
@@ -17,7 +17,7 @@ UninstallDisplayIcon={app}\{#ExeName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 OutputDir=dist
-OutputBaseFilename=HomeJoolink-Windows-v1.0.5-Setup
+OutputBaseFilename=HomeJoolink-Windows-v1.0.6-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

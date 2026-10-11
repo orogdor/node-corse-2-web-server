@@ -38,10 +38,22 @@ internal static class Program
                         force != (mode == 0 ? "Y" : "N") ||
                         h.GetProperty("user_id").GetString() != "test-user" ||
                         h.GetProperty("token").GetString() != "dummy-private-token" ||
+                        h.GetProperty("client_version").GetString() != JoolinkCloudClient.VendorAppVersion ||
+                        root.GetProperty("app_version").GetString() != JoolinkCloudClient.VendorAppVersion ||
                         seq.Length < 18 || !seq.All(char.IsDigit))
                         throw new InvalidOperationException("Cloud request schema validation failed.");
                 }
-                return "OK - six vendor-style device-list payload schemas valid";
+                for (int model = 0; model < JoolinkCloudClient.RequestPhoneModels.Length; model++)
+                {
+                    var payload = JoolinkCloudClient.BuildCameraRequest(s, true, 0, model);
+                    string expected = JoolinkCloudClient.RequestPhoneModels[model];
+                    if (!object.Equals(payload["phone_model"], expected))
+                        throw new InvalidOperationException("Phone model mismatch.");
+                    var header = (System.Collections.Generic.Dictionary<string, object>)payload["header"];
+                    if (!object.Equals(header["phone_model"], expected))
+                        throw new InvalidOperationException("Header phone model mismatch.");
+                }
+                return "OK - six vendor-style payload schemas + version 5.3.8.2 + phone model variants valid";
             });
             return;
         }
@@ -94,7 +106,7 @@ internal static class Program
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "last-startup-error.txt");
             File.WriteAllText(path,
-                "HomeJoolink Windows v1.0.5 start error\n" +
+                "HomeJoolink Windows v1.0.6 start error\n" +
                 DateTimeOffset.Now.ToString("u") + "\n" + ex.ToString());
             return path;
         }
