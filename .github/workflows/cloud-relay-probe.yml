@@ -21,7 +21,9 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build Android APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          gradle :app:assembleDebug --no-daemon --stacktrace > /tmp/homejoolink-gradle.log 2>&1 || { tail -n 120 /tmp/homejoolink-gradle.log; exit 1; }
+          tail -n 20 /tmp/homejoolink-gradle.log
       - name: Rename Android APK
         run: mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/HomeJoolink.apk
       - name: Upload test APK
@@ -43,4 +45,31 @@ jobs:
               --title "HomeJoolink 1.6.1 — serverivideo katse" \
               --notes "HomeJoolink eksperimentaalne Androidi testäpp. Joolinki pilvekonto sisselogimine, kaamerate loend ning KP2P/TURN ühenduse test. Pilvevideo näitamine ei ole veel valmis. ARM64, Android 8+." \
               --prerelease --target "$GITHUB_SHA"
+          fi
+      - name: Save build result for diagnostics
+        if: always()
+        env:
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "HOMEJOOLINK_BUILD_STATUS=${BUILD_STATUS}"
+            echo "COMMIT=${GITHUB_SHA}"
+            echo "RUN_ID=${GITHUB_RUN_ID}"
+            echo "RUN_URL=https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "APK_RELEASE_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/homejoolink-v1.6.1/HomeJoolink.apk"
+            if [ -f /tmp/homejoolink-gradle.log ]; then
+              echo "BUILD_LOG_TAIL_BEGIN"
+              tail -n 100 /tmp/homejoolink-gradle.log
+              echo "BUILD_LOG_TAIL_END"
+            fi
+          } > /tmp/homejoolink-status.txt
+          git fetch origin homejoolink-build-status
+          git switch -C homejoolink-build-status origin/homejoolink-build-status
+          cp /tmp/homejoolink-status.txt HOMEJOOLINK_BUILD_STATUS.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HOMEJOOLINK_BUILD_STATUS.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Report HomeJoolink APK build result"
+            git push origin HEAD:homejoolink-build-status
           fi
