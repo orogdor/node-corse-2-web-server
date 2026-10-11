@@ -18,6 +18,7 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.BufferedInputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -42,6 +43,7 @@ import java.util.zip.ZipInputStream;
  */
 public class JoolinkApiInspector extends Activity {
     private static final int PICK_APK=7194;
+    private static final int EXPORT_APK=7195;
     private static final String[] PACKAGES={
       "com.jooan.qiaoanzhilian.gp","com.jooan.qiaoanzhilian"
     };
@@ -61,6 +63,7 @@ public class JoolinkApiInspector extends Activity {
     private Button copy;
     private String report="";
     private volatile boolean working=false;
+    private String exportSourcePath;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -80,7 +83,7 @@ public class JoolinkApiInspector extends Activity {
         scroll.addView(root);
         setContentView(scroll);
         root.requestApplyInsets();
-        Ui.add(root,Ui.text(this,"Joolinki pilveühenduse uuring 2",22,true),this,4);
+        Ui.add(root,Ui.text(this,"Joolinki pilveühenduse uuring 3",22,true),this,4);
         TextView hint=Ui.text(this,
           "Täiustatud uuring: eristab APK-s olevaid päris URL-e üldistest Alibaba teekidest ning kontrollib rohkem komponente. Ei loe kasutaja kontot, paroole ega sessioone. Analüüs toimub telefonis ja midagi ei saadeta serverisse. See ei loo veel Joolinki sisselogimist.",13,false);
         hint.setTextColor(Ui.MUTED);Ui.add(root,hint,this,8);
@@ -90,6 +93,12 @@ public class JoolinkApiInspector extends Activity {
         Button manual=Ui.secondary(this,"Vali Joolinki APK fail telefonist");
         manual.setOnClickListener(v->chooseApk());
         Ui.add(root,manual,this,8);
+        Button export=Ui.secondary(this,"Ekspordi originaalne Joolinki APK analüüsimiseks");
+        export.setOnClickListener(v->exportInstalledApk());
+        Ui.add(root,export,this,8);
+        TextView exportNote=Ui.text(this,
+            "APK eksport salvestab ainult paigaldatud rakenduse paigaldusfaili, mitte sinu kontot, paroole ega kaamerasalvestusi. Võid selle faili siia vestlusse üles laadida täpsemaks koodianalüüsiks. Ära avalda APK-d avalikus GitHubis.",12,false);
+        exportNote.setTextColor(Ui.MUTED);Ui.add(root,exportNote,this,5);
         info=Ui.text(this,"APK-faili pole veel kontrollitud.",13,false);
         info.setTextColor(Ui.MUTED);Ui.add(root,info,this,13);
         results=Ui.text(this,"",12,false);
@@ -128,6 +137,58 @@ public class JoolinkApiInspector extends Activity {
         final String found=filename;
         runScan(()->new FileInputStream(found),"Paigaldatud "+packageName);
     }
+    private void exportInstalledApk(){
+        if(working)return;
+        exportSourcePath=null;
+        for(String name:PACKAGES){
+            try{
+                ApplicationInfo found=getPackageManager().getApplicationInfo(name,0);
+                if(found.sourceDir!=null){
+                    exportSourcePath=found.sourceDir;
+                    break;
+                }
+            }catch(Exception ignored){}
+        }
+        if(exportSourcePath==null){
+            info.setText("Originaalset Joolinki APK-d ei leitud. Veendu, et rakendus on paigaldatud.");
+            return;
+        }
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/vnd.android.package-archive");
+        intent.putExtra(Intent.EXTRA_TITLE,"Joolink-original-base.apk");
+        try{startActivityForResult(intent,EXPORT_APK);}
+        catch(Exception e){info.setText("Faili salvestamise akent ei saanud avada: "+e.getMessage());}
+    }
+    private void saveApk(Uri destination){
+        String source=exportSourcePath;
+        if(source==null)return;
+        working=true;
+        info.setText("Ekspordin Joolinki APK-d. Oota, kuni kuvatakse valmisolek …");
+        new Thread(()->{
+            try(InputStream input=new FileInputStream(source);
+                OutputStream output=getContentResolver().openOutputStream(destination,"w")){
+                if(output==null)throw new Exception("Salvestamise sihtkohta ei saanud avada");
+                byte[] buf=new byte[131072];
+                int amount;long total=0;
+                while((amount=input.read(buf))!=-1){
+                    output.write(buf,0,amount);
+                    total+=amount;
+                }
+                output.flush();
+                final long finalTotal=total;
+                runOnUiThread(()->{
+                    working=false;
+                    info.setText("APK eksporditud ("+(finalTotal/1048576)+" MB). Ava telefoni Failid / Allalaadimised ja laadi Joolink-original-base.apk siia vestlusse.");
+                });
+            }catch(Exception e){
+                runOnUiThread(()->{
+                    working=false;
+                    info.setText("APK eksport ebaõnnestus: "+e.getMessage());
+                });
+            }
+        },"joolink-apk-file-export").start();
+    }
     private void chooseApk(){
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.setType("*/*");
@@ -138,9 +199,13 @@ public class JoolinkApiInspector extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
-        if(request!=PICK_APK||result!=RESULT_OK||data==null||data.getData()==null)return;
+        if(result!=RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();
-        runScan(()->getContentResolver().openInputStream(uri),"Valitud APK");
+        if(request==EXPORT_APK){
+            saveApk(uri);
+        }else if(request==PICK_APK){
+            runScan(()->getContentResolver().openInputStream(uri),"Valitud APK");
+        }
     }
     private interface StreamOpener{InputStream open() throws Exception;}
     private void runScan(StreamOpener file,String source){
