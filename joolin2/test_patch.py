@@ -2,7 +2,7 @@
 """Unit checks for side-by-side package name rewrite and smali hooks."""
 import pathlib,sys,tempfile
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
-from patch import hook_method,patch_manifest,HELPER,NEW
+from patch import hook_method,patch_manifest,guard_application_oncreate,HELPER,NEW
 
 METHODS=""".class public Lcom/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity;
 .super Landroid/app/Activity;
@@ -50,6 +50,24 @@ def test_hooks():
     assert yes and code==old
     print("Decoder smali hook tests passed")
 
+
+def test_diagnostic_guard():
+    sample=""".class public Lcom/jooan/qiaoanzhilian/JooanApplication;
+.super Landroid/app/Application;
+.method public onCreate()V
+    .locals 3
+    invoke-super {p0}, Landroid/app/Application;->onCreate()V
+    return-void
+.end method
+"""
+    patched=guard_application_oncreate(sample)
+    assert ".locals 4" in patched
+    assert "move-result v3" in patched
+    assert "Joolin2CrashReporter;->guard" in patched
+    assert ":joolin2_vendor_application" in patched
+    assert patched.count("return-void")==2
+    print("Separate-process early Application guard passed")
+
 def test_manifest():
     xml='''<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -84,9 +102,11 @@ package="com.jooan.qiaoanzhilian.gp">
         assert 'joolin2.original_launcher' in text
         assert 'com.jooan.qiaoanzhilian.gp.MainActivity' in text
         assert 'Joolin2DiagnosticsActivity' in text
+        assert ':diagnostics' in text
         assert text.count('android.intent.category.LAUNCHER')==1
     print("Independent package manifest tests passed")
 
 if __name__=="__main__":
     test_hooks()
+    test_diagnostic_guard()
     test_manifest()
