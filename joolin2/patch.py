@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 
 OLD="com.jooan.qiaoanzhilian.gp"
-NEW="ee.joolin2.decoder.v5"
+NEW="ee.joolin2.decoder.v4"
 CAMERA="com/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity.smali"
 HELPER="Lcom/jooan/qiaoanzhilian/ui/activity/play/VideoSettings;"
 CRASH="Lcom/jooan/qiaoanzhilian/ui/activity/play/Joolin2CrashReporter;"
@@ -71,36 +71,6 @@ def guard_application_oncreate(text):
     updated=updated[:local2.end()]+gate+updated[local2.end():]
     return text[:m.start()]+updated+text[m.end():]
 
-def guard_application_attach(text):
-    """The manufacturer initializes native libraries in attachBaseContext.
-    Diagnostic process must bypass that path, but still attach the base context.
-    Fail closed if the target class' attach method shape differs.
-    """
-    pattern=re.compile(
-        r'(?ms)^\.method[^\n]*\battachBaseContext\(Landroid/content/Context;\)V\n.*?^\.end method')
-    found=list(pattern.finditer(text))
-    if len(found)!=1:
-        raise ValueError("Expected one JooanApplication.attachBaseContext; found "+str(len(found)))
-    m=found[0]
-    original=m.group()
-    register=re.search(r'(?m)^(\s*\.locals\s+)(\d+)(\s*)$',original)
-    if not register:raise ValueError("Application.attachBaseContext needs .locals")
-    number=int(register.group(2))
-    if number>240:raise ValueError("Too many local registers")
-    # First branch avoids the original manufacturer's attachBaseContext entirely.
-    gate=(
-        "\n    invoke-static {}, "+CRASH+"->isDiagnosticsProcess()Z"
-        "\n    move-result v"+str(number)+
-        "\n    if-eqz v"+str(number)+", :joolin2_original_attach"+
-        "\n    invoke-super {p0, p1}, Landroid/app/Application;->attachBaseContext(Landroid/content/Context;)V"+
-        "\n    return-void"+
-        "\n    :joolin2_original_attach"
-    )
-    updated=original[:register.start(2)]+str(number+1)+original[register.end(2):]
-    loc=re.search(r'(?m)^(\s*\.locals\s+)(\d+)(\s*)$',updated)
-    updated=updated[:loc.end()]+gate+updated[loc.end():]
-    return text[:m.start()]+updated+text[m.end():]
-
 def qualified(name):
     if not name:return name
     if name.startswith("."):return OLD+name
@@ -142,7 +112,7 @@ def patch_manifest(file):
     if app is None:raise ValueError("application element absent")
     app_class=app.get(ANDROID+"name")
     if app_class:app_class=qualified(app_class)
-    app.set(ANDROID+"label","Joolin2 v5")
+    app.set(ANDROID+"label","Joolin2 v4")
     app.set(ANDROID+"allowBackup","false")
     root.attrib.pop(ANDROID+"sharedUserId",None)
     # Interpose diagnostic launcher, forwarding normally to the original launch.
@@ -164,7 +134,7 @@ def patch_manifest(file):
     diag.set(ANDROID+"name",DIAGNOSTICS)
     diag.set(ANDROID+"exported","true")
     diag.set(ANDROID+"process",":diagnostics")
-    diag.set(ANDROID+"label","Joolin2 v5")
+    diag.set(ANDROID+"label","Joolin2 v4")
     filt=ET.SubElement(diag,"intent-filter")
     action=ET.SubElement(filt,"action")
     action.set(ANDROID+"name","android.intent.action.MAIN")
@@ -200,7 +170,6 @@ def main():
     if len(apps)!=1:raise ValueError("Application class not found: "+app_class)
     contents=apps[0].read_text(encoding="utf-8")
     contents=guard_application_oncreate(contents)
-    contents=guard_application_attach(contents)
     apps[0].write_text(contents,encoding="utf-8")
     print("Crash recorder inserted in:",app_class)
     matches=list(base.glob("smali*/"+CAMERA))

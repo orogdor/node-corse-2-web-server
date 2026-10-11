@@ -63,13 +63,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='joolin2-decoder-public-v5'
+          TAG='joolin2-decoder-public-v4'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" 'Joolin2-Decoder-Test.apk' --clobber
           else
             gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
               --target joolin2-public \
-              --title "Joolin2 v5 – early-start diagnostic isolation" \
-              --notes "Experimental Joolin2 v5 diagnostic APK, app ID ee.joolin2.decoder.v5. Tries to bypass vendor Application.attachBaseContext and onCreate in the isolated diagnostic process, while allowing normal Joolink startup in the main process. This is NOT proof that the application logs in or runs on a real Samsung S24. Unofficial derivative, signed with test key." \
+              --title "Joolin2 v4 – isolated crash viewer" \
+              --notes "Joolin2 v4 diagnostic TEST APK. Starts in a separate :diagnostics Android process and skips vendor Application initialization only there, enabling an on-device crash report even when Joolink crashes immediately. Tap retry to launch actual vendor app. Different package ID ee.joolin2.decoder.v4. Does not prove login/video work. Android SDK signing and static tests only. Unofficial Joolink derivative." \
               --latest=false
           fi
