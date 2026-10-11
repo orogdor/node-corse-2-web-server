@@ -22,6 +22,9 @@ public class CloudCameraActivity extends Activity {
     private String key,name;
     private EditText url,username,port;
     private TextView status;
+    private LinearLayout discovered;
+    private Button scanButton;
+    private volatile boolean destroyed;
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         key=getIntent().getStringExtra("device_key");
@@ -93,9 +96,70 @@ public class CloudCameraActivity extends Activity {
             startActivity(i);
         });
         Ui.add(root,local,this,15);
+        Ui.add(root,Ui.text(this,"Kiire RTSP-otsing selles WiFi-võrgus",17,true),this,17);
+        TextView instructions=Ui.text(this,
+            "Kui pilvekaamera video pole veel seotud, otsib see nupp võrgus töötavaid RTSP vooge. Vali õigesse kaamerasse kuuluv IP aadress. Pilvekaamerat ei saa ainult nime järgi automaatselt IP-ga samastada.",12,false);
+        instructions.setTextColor(Ui.MUTED);Ui.add(root,instructions,this,4);
+        scanButton=Ui.secondary(this,"Otsi videovoog ja vali ühendus");
+        scanButton.setOnClickListener(v->scanStreams());
+        Ui.add(root,scanButton,this,8);
+        discovered=Ui.vertical(this);Ui.add(root,discovered,this,7);
         Button back=Ui.secondary(this,"← Kaamerate nimekirja");
         back.setOnClickListener(v->finish());Ui.add(root,back,this,7);
     }
+    private void scanStreams(){
+        String subnet=RtspNetwork.wifiBase(this);
+        if(subnet==null){
+            status.setText("RTSP võrguotsing töötab koduses WiFi-võrgus. Mobiilse internetiga kasuta salvestatud RTSP aadressi ja VPN-i.");
+            return;
+        }
+        scanButton.setEnabled(false);
+        discovered.removeAllViews();
+        status.setText("Otsin RTSP porte võrgus "+subnet+"0/24 …");
+        java.util.Set<String> found=java.util.concurrent.ConcurrentHashMap.newKeySet();
+        RtspNetwork.ScanCallback callback=new RtspNetwork.ScanCallback(){
+            @Override public void found(String ip,int rtspPort){
+                String id=ip+":"+rtspPort;
+                if(!found.add(id))return;
+                if(!destroyed)runOnUiThread(()->{
+                    Button pick=Ui.secondary(CloudCameraActivity.this,
+                        "Vali RTSP: "+ip+":"+rtspPort);
+                    pick.setOnClickListener(v->{
+                        status.setText("Kontrollin RTSP aadressi "+id+" …");
+                        new Thread(()->{
+                            String address=RtspNetwork.findPath(ip,rtspPort);
+                            if(!destroyed)runOnUiThread(()->{
+                                url.setText(address);
+                                status.setText("Leidsin voo "+address+". Kui pilt on õigest kaamerast, vajuta Salvesta seos ja ava videopilt.");
+                            });
+                        },"joolink-rtsp-candidate").start();
+                    });
+                    Ui.add(discovered,pick,CloudCameraActivity.this,5);
+                });
+            }
+            @Override public void status(String message){
+                if(!destroyed)runOnUiThread(()->status.setText(message));
+            }
+            @Override public void finish(String message){
+                if(!destroyed)runOnUiThread(()->status.setText(message));
+            }
+        };
+        new Thread(()->{
+            int quick=RtspNetwork.scanHosts(subnet,callback);
+            int total=quick;
+            if(quick==0){
+                callback.status("Kiire RTSP otsing ei leidnud kaameraid. Käivitan põhjalikuma otsingu …");
+                total=RtspNetwork.deepScan(getApplicationContext(),subnet,callback);
+            }
+            final int matches=total;
+            if(!destroyed)runOnUiThread(()->{
+                scanButton.setEnabled(true);
+                status.setText(matches==0?"Ühtegi vastavat porti ei leitud. Võib-olla toetab kaamera ainult Joolinki P2P pilve.": 
+                    "Otsing valmis. Leitud "+matches+" võimalikku ühendust. Vali sobiv kaamera.");
+            });
+        },"joolink-cloud-local-rtsp-scanner").start();
+    }
+    @Override protected void onDestroy(){destroyed=true;super.onDestroy();}
     private int selectedPort(){
         try{int p=Integer.parseInt(port.getText().toString());return p>0&&p<65536?p:80;}
         catch(Exception e){return 80;}
