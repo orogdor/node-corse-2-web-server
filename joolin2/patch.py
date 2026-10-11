@@ -12,6 +12,8 @@ OLD="com.jooan.qiaoanzhilian.gp"
 NEW="ee.joolin2.decoder"
 CAMERA="com/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity.smali"
 HELPER="Lcom/jooan/qiaoanzhilian/ui/activity/play/VideoSettings;"
+CRASH="Lcom/jooan/qiaoanzhilian/ui/activity/play/Joolin2CrashReporter;"
+DIAGNOSTICS="com.jooan.qiaoanzhilian.ui.activity.play.Joolin2DiagnosticsActivity"
 ANDROID="{http://schemas.android.com/apk/res/android}"
 
 def hook_method(text,name,signature,position,hook,required=True):
@@ -83,11 +85,38 @@ def patch_manifest(file):
     root.set("package",NEW)
     app=root.find("application")
     if app is None:raise ValueError("application element absent")
+    app_class=app.get(ANDROID+"name")
+    if app_class:app_class=qualified(app_class)
     app.set(ANDROID+"label","Joolin2")
     app.set(ANDROID+"allowBackup","false")
-    # Signature-specific sharedUserId would prevent the parallel install.
     root.attrib.pop(ANDROID+"sharedUserId",None)
+    # Interpose diagnostic launcher, forwarding normally to the original launch.
+    launcher_name=None
+    for component in app.findall("activity")+app.findall("activity-alias"):
+        for filter_node in list(component.findall("intent-filter")):
+            actions={x.get(ANDROID+"name") for x in filter_node.findall("action")}
+            categories={x.get(ANDROID+"name") for x in filter_node.findall("category")}
+            if ("android.intent.action.MAIN" in actions and
+                    "android.intent.category.LAUNCHER" in categories):
+                if launcher_name is not None:raise ValueError("multiple launcher activities")
+                launcher_name=qualified(component.get(ANDROID+"name"))
+                component.remove(filter_node)
+    if launcher_name is None:raise ValueError("original launcher intent not found")
+    meta=ET.SubElement(app,"meta-data")
+    meta.set(ANDROID+"name","joolin2.original_launcher")
+    meta.set(ANDROID+"value",launcher_name)
+    diag=ET.SubElement(app,"activity")
+    diag.set(ANDROID+"name",DIAGNOSTICS)
+    diag.set(ANDROID+"exported","true")
+    diag.set(ANDROID+"label","Joolin2")
+    filt=ET.SubElement(diag,"intent-filter")
+    action=ET.SubElement(filt,"action")
+    action.set(ANDROID+"name","android.intent.action.MAIN")
+    category=ET.SubElement(filt,"category")
+    category.set(ANDROID+"name","android.intent.category.LAUNCHER")
     tree.write(file,encoding="utf-8",xml_declaration=True)
+    print("Joolin2 diagnostics launch original activity:",launcher_name)
+    return app_class
     print("Patched manifest app ID:",NEW)
 
 def main():
@@ -97,7 +126,27 @@ def main():
     base=pathlib.Path(args.decoded)
     manifest=base/"AndroidManifest.xml"
     if not manifest.exists():raise SystemExit("AndroidManifest.xml is absent")
-    patch_manifest(manifest)
+    app_class=patch_manifest(manifest)
+    # Rebind three or fewer direct package constants for app-local intents.
+    hits=[]
+    for file in base.glob("smali*/**/*.smali"):
+        source=file.read_text(encoding="utf-8")
+        changed,count=re.subn(
+            r'(\\bconst-string(?:/jumbo)?\\s+[^,]+,\\s*")'+re.escape(OLD)+r'(")',
+            lambda m:m.group(1)+NEW+m.group(2),source)
+        if count:
+            file.write_text(changed,encoding="utf-8")
+            hits.append((file.relative_to(base).as_posix(),count))
+    print("Rebound hardcoded package constants:",hits)
+    if not app_class:raise ValueError("Application class missing; cannot instrument")
+    app_path=app_class.replace(".","/")+".smali"
+    apps=list(base.glob("smali*/"+app_path))
+    if len(apps)!=1:raise ValueError("Application class not found: "+app_class)
+    contents=apps[0].read_text(encoding="utf-8")
+    capture="invoke-static {p0}, "+CRASH+"->install(Landroid/app/Application;)V"
+    contents,_=hook_method(contents,"onCreate","","entry",capture)
+    apps[0].write_text(contents,encoding="utf-8")
+    print("Crash recorder inserted in:",app_class)
     matches=list(base.glob("smali*/"+CAMERA))
     if len(matches)!=1:
         raise SystemExit("Expected one CameraPlayerActivity.smali, got "+str(len(matches)))
