@@ -44,7 +44,11 @@ public class InternetActivity extends Activity {
         TextView official=Ui.text(this,
            "Sinu Joolinki kasutajakontole saab praegu turvaliselt sisse logida tootja enda rakenduses. Meie äpp ei toeta veel selle konto autentimist ega konto kaamerate kuvamist. Seetõttu ei küsi me siin Joolinki parooli.",14,false);
         official.setTextColor(Ui.MUTED);
+        official.setText("APK-st tuvastatud Joolinki kontoliidese põhjal saab nüüd proovida otse tootja serverisse sisse logida. See on esialgu test: server võib nõuda tootja rakenduse lisatõendust. Parool saadetakse ainult tootja HTTPS-aadressile sinu nupuvajutusega.");
         Ui.add(joolink,official,this,6);
+        Button nativeLogin=Ui.button(this,"Proovi meie äpis Joolinki sisselogimist");
+        nativeLogin.setOnClickListener(v->startActivity(new Intent(this,JoolinkCloudLoginActivity.class)));
+        Ui.add(joolink,nativeLogin,this,10);
         Button login=Ui.button(this,"Ava Joolink ja logi sisse");
         login.setOnClickListener(v->openOfficialApp());
         Ui.add(joolink,login,this,12);
