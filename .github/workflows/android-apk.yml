@@ -40,7 +40,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: JoolinkViewer-arm64-v1.3.1
+          name: JoolinkViewer-arm64-v1.3.2
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in Releases
@@ -48,14 +48,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="joolink-viewer-v1.3.1"
+          TAG="joolink-viewer-v1.3.2"
           APK="app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.3.1.apk" --clobber
+            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.3.2.apk" --clobber
           else
-            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.3.1.apk" \
+            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.3.2.apk" \
               --target "$GITHUB_SHA" \
-              --title "Joolink Viewer 1.3.1 (Android ARM64 APK)" \
-              --notes "Lisatud ainult kohapeal toimiv Joolinki APK serveriaadresside diagnostika; tegelikku Joolinki konto autentimist EI OLE veel, sest tootja login API on tuvastamata. Paroole ei loeta ega saadeta; olemasolevad kohalikud ja VPN vaated jaavad alles." \
+              --title "Joolink Viewer 1.3.2 (Android ARM64 APK)" \
+              --notes "Offline APK audit v2: real server URL versus SDK class, complete DEX and config coverage, no passwords or network requests. Direct Joolink account login is still unimplemented, pending verified official authentication mechanism." \
               --latest=false
           fi
