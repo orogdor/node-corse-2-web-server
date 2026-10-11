@@ -24,3 +24,10 @@ There is a --self-test <outputfile> mode used during the CI Windows build to ver
 - Experimental Joolink device-list request variants: original force_query_bind=Y and without the flag. Select manually; no undocumented endpoints or repeated background probing.
 - E_000_002 appears as a server rejection with only response field *names*, error code and mode in copyable diagnostic log. Its exact meaning is unknown; a successful login does not prove that the camera-list API has accepted the session.
 - Cloud video / P2P is still not supported. No credentials or session tokens are written to log or disk.
+
+
+## Windows v1.0.3 startup fixes
+- Primary-display-centered launch, more tolerant minimum pane dimensions.
+- EXE has an additional --ui-self-test mode that constructs and displays the real WinForms UI on Windows.
+- Start errors show a message and write %LOCALAPPDATA%\\HomeJoolink\\last-startup-error.txt.
+- GitHub Actions verifies actual main-window construction in addition to VLC initialization. Real camera-cloud live video is still not supported.

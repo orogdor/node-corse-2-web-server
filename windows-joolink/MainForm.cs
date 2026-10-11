@@ -27,21 +27,22 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "HomeJoolink — Windows v1.0.2 TEST";
+        Text = "HomeJoolink — Windows v1.0.3 TEST";
         AutoScaleMode = AutoScaleMode.Dpi;
-        StartPosition = FormStartPosition.Manual;
+        StartPosition = FormStartPosition.CenterScreen;
         BackColor = BG; ForeColor = TXT;
         Font = new Font("Segoe UI", 10f);
         // Fit the actual Windows work area, including taskbar and DPI scaling.
-        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        var area = Screen.PrimaryScreen?.WorkingArea ?? SystemInformation.WorkingArea;
         MinimumSize = new Size(Math.Min(760, area.Width), Math.Min(510, area.Height));
         Size = new Size(Math.Min(1210, area.Width), Math.Min(790, area.Height));
-        Location = new Point(area.Left + Math.Max(0, (area.Width - Width) / 2),
-                             area.Top + Math.Max(0, (area.Height - Height) / 2));
+        // Let WinForms center the window on the primary display. This also works
+        // when an external monitor used previously has been disconnected.
         MakeUi();
         Shown += (_, _) => {
             FitToWorkingArea();
-            InitPlayer();
+            // Video is optional and should not prevent the main window from showing.
+            BeginInvoke(new Action(InitPlayer));
         };
         FormClosing += (_, _) => closing.Cancel();
         FormClosed += (_, _) => Shutdown();
@@ -103,9 +104,11 @@ public sealed class MainForm : Form
     }
     private void MakeUi()
     {
-        var split = new SplitContainer { Dock = DockStyle.Fill, Size = ClientSize,
-            Panel1MinSize = 280, Panel2MinSize = 270 };
-        split.SplitterDistance = Math.Max(280, Math.Min(385, ClientSize.Width / 3));
+        var split = new SplitContainer {
+            Dock = DockStyle.Fill, Size = ClientSize,
+            Panel1MinSize = 230, Panel2MinSize = 230
+        };
+        split.SplitterDistance = Math.Max(235, Math.Min(385, ClientSize.Width / 3));
         Controls.Add(split);
         var tabs = new TabControl { Dock = DockStyle.Fill };
         split.Panel1.Controls.Add(tabs);
