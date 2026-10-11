@@ -217,6 +217,7 @@ public class PlayerActivity extends Activity {
         button.setOnTouchListener((v,event)->{
             switch(event.getActionMasked()){
                 case MotionEvent.ACTION_DOWN:
+                    v.setPressed(true);
                     if(onvif==null||!onvif.supportsPtz()){report("ONVIF PTZ pole saadaval. Kontrolli mudelit ja autentimist.");return true;}
                     lastMove=System.currentTimeMillis();
                     sendMove(x,y,z);
@@ -231,6 +232,7 @@ public class PlayerActivity extends Activity {
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    v.setPressed(false);
                     if(refresh[0]!=null)handler.removeCallbacks(refresh[0]);
                     long delay=Math.max(0,250-(System.currentTimeMillis()-lastMove));
                     handler.postDelayed(()->command("Seiska",()->onvif.stop()),delay);
