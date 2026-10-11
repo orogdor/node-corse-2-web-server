@@ -44,8 +44,8 @@ public class MainActivity extends Activity {
             return insets;
         });
         base.requestApplyInsets();
-        Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.1",25,true),this,0);
-        TextView sub=Ui.text(this,"Otse WiFi-võrgust • ONVIF juhtimine • videovoogude valik",13,false);
+        Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.2",25,true),this,0);
+        TextView sub=Ui.text(this,"Kodu WiFi või VPN • ONVIF • salvestised",13,false);
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
         Ui.add(base,Ui.text(this,"1. Leia oma kaamera",19,true),this,16);
         scanButton=Ui.button(this,"Otsi automaatselt (2 etappi)");
@@ -77,6 +77,17 @@ public class MainActivity extends Activity {
         save.setOnClickListener(v->save());Ui.add(base,save,this,7);
         Button history=Ui.secondary(this,"▣ Vaata ajalugu ja salvestisi");
         history.setOnClickListener(v->openHistory());Ui.add(base,history,this,7);
+        Ui.add(base,Ui.text(this,"3. Kaugvaade mobiilse internetiga",19,true),this,20);
+        TextView remoteHelp=Ui.text(this,"Kodus vajab Tailscale alati töötavat võrguväravat (nt arvuti, ruuter või laadijas varutelefon). Värav jagab võrku 192.168.8.0/24. Telefonis ava Tailscale ja kasuta kaamerale sama RTSP-aadressi nagu kodus. Kaamera porte ei pea internetti avama.",13,false);
+        remoteHelp.setTextColor(Ui.MUTED);Ui.add(base,remoteHelp,this,5);
+        Button vpnGuide=Ui.secondary(this,"Tailscale'i turvalise kaugühenduse juhend");
+        vpnGuide.setOnClickListener(v->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://tailscale.com/docs/features/subnet-routers/how-to/setup?tab=android"))));
+        Ui.add(base,vpnGuide,this,8);
+        Button checkRemote=Ui.button(this,"Kontrolli kaamera ühendust (ka 4G/5G)");
+        checkRemote.setOnClickListener(v->checkRemoteReachability());
+        Ui.add(base,checkRemote,this,8);
+        TextView remoteFoot=Ui.text(this,"Kui mobiilse internetiga kontroll ebaõnnestub, on enamasti puudu koduvõrgu VPN-värav või selle alamvõrgu marsruut. Joolinki pilveühendust see äpp ei kasuta.",12,false);
+        remoteFoot.setTextColor(Ui.MUTED);Ui.add(base,remoteFoot,this,4);
         Ui.add(base,Ui.text(this,"Minu kaamerad",19,true),this,20);
         savedList=Ui.vertical(this);Ui.add(base,savedList,this,5);
         redrawSaved();
@@ -87,6 +98,24 @@ public class MainActivity extends Activity {
     private void notifyText(String s){if(!destroyed)runOnUiThread(()->{if(!destroyed)status.setText(s);});}
     private int onvifPort(){
         try{int p=Integer.parseInt(onvifPortInput.getText().toString());return p>=1&&p<=65535?p:80;}catch(Exception e){return 80;}
+    }
+    private void checkRemoteReachability(){
+        String url=validatedUrl();
+        if(url==null)return;
+        Uri parsed=Uri.parse(url);
+        String host=parsed.getHost();
+        if(host==null){notifyText("Kaamera aadress puudub.");return;}
+        int port=parsed.getPort();
+        if(port<=0)port="https".equalsIgnoreCase(parsed.getScheme())?443:
+                ("http".equalsIgnoreCase(parsed.getScheme())?80:554);
+        final int targetPort=port;
+        notifyText("Kontrollin TCP ühendust kaameraga "+host+":"+targetPort+" …");
+        new Thread(()->{
+            boolean connected=RtspNetwork.open(host,targetPort,2500);
+            if(!destroyed)notifyText(connected?
+                "Ühendus kaameraga "+host+":"+targetPort+" töötab! Ava videopilt. RTSP kasutajanime võib veel vaja minna.":
+                "Ühendus "+host+":"+targetPort+" puudub. Kui oled 4G/5G võrgus, kontrolli Tailscale VPN-i ja koduse võrgu 192.168.8.0/24 marsruuti.");
+        },"joolink-vpn-connection-test").start();
     }
     private void scan(){
         String base=RtspNetwork.wifiBase(this);

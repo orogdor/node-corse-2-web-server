@@ -97,6 +97,22 @@ final class OnvifClient {
         replayUrl=service(capabilities,"Replay");
         ptzAvailable=ptzUrl!=null;
         imagingAvailable=imagingUrl!=null;
+        try{
+            Document services=call(deviceUrl,TDS,"GetServices","<tds:GetServices><tds:IncludeCapability>true</tds:IncludeCapability></tds:GetServices>");
+            for(Element serviceNode:all(services.getDocumentElement(),"Service")){
+                String ns=value(serviceNode,"Namespace"),addr=value(serviceNode,"XAddr");
+                if(ns==null||addr==null)continue;
+                String checked=checkedServiceUrl(addr);
+                if(checked==null)continue;
+                if(ns.contains("/recording/wsdl"))recordingUrl=checked;
+                else if(ns.contains("/replay/wsdl"))replayUrl=checked;
+                else if(ns.contains("/media/wsdl")&&mediaUrl==null)mediaUrl=checked;
+                else if(ns.contains("/ptz/wsdl")&&ptzUrl==null)ptzUrl=checked;
+                else if(ns.contains("/imaging/wsdl")&&imagingUrl==null)imagingUrl=checked;
+            }
+        }catch(Exception ignored){} // Older ONVIF cameras do not implement GetServices.
+        ptzAvailable=ptzUrl!=null;
+        imagingAvailable=imagingUrl!=null;
         recordingAvailable=recordingUrl!=null&&replayUrl!=null;
         if(mediaUrl==null)mediaUrl="http://"+ip+":"+devicePort()+"/onvif/media_service";
         Document profiles=call(mediaUrl,TRT,"GetProfiles","<trt:GetProfiles/>");
@@ -171,6 +187,18 @@ final class OnvifClient {
         }
         return list;
     }
+    private String checkedServiceUrl(String url){
+        try{
+            URL u=new URL(url);
+            if(!"http".equalsIgnoreCase(u.getProtocol())&&!"https".equalsIgnoreCase(u.getProtocol()))return null;
+            String host=u.getHost();
+            if("0.0.0.0".equals(host)||"127.0.0.1".equals(host)||"localhost".equalsIgnoreCase(host))
+                return new URL(u.getProtocol(),ip,u.getPort(),u.getFile()).toExternalForm();
+            // Reject off-camera endpoints to avoid sending camera credentials to another host.
+            if(!host.equalsIgnoreCase(ip))return null;
+            return url;
+        }catch(Exception ex){return null;}
+    }
     private String service(Element capabilities,String kind){
         Element e=first(capabilities,kind);
         String url=e==null?null:value(e,"XAddr");
@@ -194,7 +222,8 @@ final class OnvifClient {
         HttpURLConnection conn=null;
         try {
             conn=(HttpURLConnection)new URL(endpoint).openConnection();
-            conn.setConnectTimeout(1800);conn.setReadTimeout(3500);conn.setDoOutput(true);
+            boolean quick="ContinuousMove".equals(action)||"Stop".equals(action);
+            conn.setConnectTimeout(quick?900:1800);conn.setReadTimeout(quick?1400:3500);conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type","application/soap+xml; charset=utf-8; action=\""+namespace+"/"+action+"\"");
             conn.setRequestProperty("SOAPAction", "\""+namespace+"/"+action+"\"");
@@ -208,7 +237,7 @@ final class OnvifClient {
                     String auth=digestHeader(header,"POST",new URL(endpoint).getFile());
                     conn.disconnect();
                     conn=(HttpURLConnection)new URL(endpoint).openConnection();
-                    conn.setConnectTimeout(1800);conn.setReadTimeout(3500);conn.setDoOutput(true);
+                    conn.setConnectTimeout(quick?900:1800);conn.setReadTimeout(quick?1400:3500);conn.setDoOutput(true);
                     conn.setRequestMethod("POST");conn.setRequestProperty("Content-Type","application/soap+xml; charset=utf-8");
                     conn.setRequestProperty("Authorization",auth);write(conn,request);
                     status=conn.getResponseCode();

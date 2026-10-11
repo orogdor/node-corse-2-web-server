@@ -1,6 +1,9 @@
 package ee.joolinkviewer;
 
 import android.app.Activity;
+import org.json.JSONArray;
+import android.content.Intent;
+import android.content.ContentResolver;
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -26,6 +29,8 @@ import java.util.Locale;
 public class HistoryActivity extends Activity {
     private LinearLayout content,localList,remoteList;
     private TextView remoteStatus,localStatus,selectedDate;
+    private LinearLayout importedList;
+    private static final int PICK_VIDEO=3196;
     private long filterDay=-1;
     private String cameraIp,user,pass;
     private int port;
@@ -68,6 +73,15 @@ public class HistoryActivity extends Activity {
         localStatus.setTextColor(Ui.MUTED);Ui.add(content,localStatus,this,3);
         localList=Ui.vertical(this);Ui.add(content,localList,this,5);
         refreshLocal();
+        Ui.add(content,Ui.text(this,"Lisa salvestis telefonist või SD-kaardilt",18,true),this,16);
+        TextView pickerHelp=Ui.text(this,"Kui kaamera salvestab mälukaardile, aga ei anna ajalugu ONVIF-i kaudu, saad valida telefonis olevad või USB/SD-kaardi lugejast avatud MP4/MKV/TS videod.",12,false);
+        pickerHelp.setTextColor(Ui.MUTED);Ui.add(content,pickerHelp,this,4);
+        Button importButton=Ui.secondary(this,"+ Vali telefoni või SD-kaardi videofailid");
+        importButton.setOnClickListener(v->pickVideo());
+        Ui.add(content,importButton,this,7);
+        importedList=Ui.vertical(this);
+        Ui.add(content,importedList,this,5);
+        refreshImported();
         Ui.add(content,Ui.text(this,"Kaamera mälukaart / NVR (ONVIF)",18,true),this,18);
         remoteStatus=Ui.text(this,"ONVIF arhiiv nõuab salvestus- ja taasesitusteenuse tuge.",13,false);
         remoteStatus.setTextColor(Ui.MUTED);Ui.add(content,remoteStatus,this,3);
@@ -88,8 +102,55 @@ public class HistoryActivity extends Activity {
         });
         Ui.add(content,open,this,7);
         TextView limitation=Ui.text(this,"Mõned Joolinki kaamerad ei ava SD-kaardi ajalugu ONVIF kaudu. Sel juhul on vajalik tootja pilveteenus või tootja spetsiaalne liides. " +
-          "Telefoni kohalik ajalugu sisaldab ainult selles rakenduses tehtud salvestusi.",12,false);
+          "Telefoni kohalik ajalugu sisaldab ainult selles rakenduses tehtud salvestusi. Ülal võid lisada eraldi videofaile.",12,false);
         limitation.setTextColor(Ui.MUTED);Ui.add(content,limitation,this,16);
+    }
+    private void pickVideo(){
+        Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.setType("video/*");
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
+        startActivityForResult(i,PICK_VIDEO);
+    }
+    @Override protected void onActivityResult(int request,int result,Intent intent){
+        super.onActivityResult(request,result,intent);
+        if(request!=PICK_VIDEO||result!=RESULT_OK||intent==null)return;
+        JSONArray saved;
+        try{saved=new JSONArray(getPreferences(MODE_PRIVATE).getString("external_video_uris","[]"));}
+        catch(Exception ex){saved=new JSONArray();}
+        List<Uri> incoming=new ArrayList<>();
+        if(intent.getData()!=null)incoming.add(intent.getData());
+        if(intent.getClipData()!=null)for(int n=0;n<intent.getClipData().getItemCount();n++)
+            incoming.add(intent.getClipData().getItemAt(n).getUri());
+        for(Uri item:incoming){
+            try{
+                getContentResolver().takePersistableUriPermission(item,Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                boolean exists=false;
+                for(int n=0;n<saved.length();n++)if(item.toString().equals(saved.optString(n)))exists=true;
+                if(!exists)saved.put(item.toString());
+            }catch(Exception ignored){}
+        }
+        getPreferences(MODE_PRIVATE).edit().putString("external_video_uris",saved.toString()).apply();
+        refreshImported();
+    }
+    private void refreshImported(){
+        if(importedList==null)return;
+        importedList.removeAllViews();
+        JSONArray arr;
+        try{arr=new JSONArray(getPreferences(MODE_PRIVATE).getString("external_video_uris","[]"));}
+        catch(Exception e){arr=new JSONArray();}
+        for(int i=0;i<arr.length();i++){
+            String address=arr.optString(i);
+            if(address.isEmpty())continue;
+            Uri uri=Uri.parse(address);
+            String title="Videofail "+(i+1);
+            try(android.database.Cursor cur=getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null)){
+                if(cur!=null&&cur.moveToFirst())title=cur.getString(0);
+            }catch(Exception ignored){}
+            Button b=Ui.secondary(this,"▶ "+title);
+            b.setOnClickListener(v->startPlayer("Avatud fail",address,true));
+            Ui.add(importedList,b,this,6);
+        }
     }
     private File dir(){
         File base=getExternalFilesDir(Environment.DIRECTORY_MOVIES);
@@ -127,7 +188,7 @@ public class HistoryActivity extends Activity {
         }
         localStatus.setText(count==0?"Valitud perioodil salvestisi ei ole.":count+" salvestist (uusimad esimesena). Puuduta salvestist selle avamiseks.");
     }
-    @Override protected void onResume(){super.onResume();if(localList!=null)refreshLocal();}
+    @Override protected void onResume(){super.onResume();if(localList!=null)refreshLocal();if(importedList!=null)refreshImported();}
     private void refreshRemote(){
         remoteList.removeAllViews();
         if(cameraIp==null||!RtspNetwork.isPrivate(cameraIp)){

@@ -10,6 +10,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.HapticFeedbackConstants;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
+import android.graphics.Color;
+import java.util.concurrent.atomic.AtomicBoolean;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -38,6 +43,9 @@ public class PlayerActivity extends Activity {
     private final int[] buffers={350,800,1800};
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final ExecutorService background=Executors.newSingleThreadExecutor();
+    private final ExecutorService ptzCommands=Executors.newSingleThreadExecutor();
+    private final AtomicBoolean ptzMoveBusy=new AtomicBoolean(false);
+    private volatile boolean ptzHeld=false;
     private LibVLC engine;
     private MediaPlayer player;
     private VLCVideoLayout video;
@@ -68,7 +76,7 @@ public class PlayerActivity extends Activity {
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         streamUrl=getIntent().getStringExtra("url");
-        if(streamUrl==null||(!RtspNetwork.validUrl(streamUrl)&&!streamUrl.startsWith("file://"))){finish();return;}
+        if(streamUrl==null||(!RtspNetwork.validUrl(streamUrl)&&!streamUrl.startsWith("file://")&&!streamUrl.startsWith("content://"))){finish();return;}
         cameraIp=getIntent().getStringExtra("camera_ip");
         if(cameraIp==null||!RtspNetwork.isPrivate(cameraIp)){
             try{cameraIp=Uri.parse(streamUrl).getHost();}catch(Exception ignored){}
@@ -76,7 +84,7 @@ public class PlayerActivity extends Activity {
         username=getIntent().getStringExtra("user");
         password=getIntent().getStringExtra("pass");
         onvifPort=getIntent().getIntExtra("onvif_port",80);
-        localHistory=streamUrl.startsWith("file://")||getIntent().getBooleanExtra("recording",false);
+        localHistory=streamUrl.startsWith("file://")||streamUrl.startsWith("content://")||getIntent().getBooleanExtra("recording",false);
         getWindow().setStatusBarColor(Ui.BG);getWindow().setNavigationBarColor(Ui.BG);
         LinearLayout root=Ui.vertical(this);
         root.setPadding(Ui.dp(this,12),Ui.dp(this,10),Ui.dp(this,12),Ui.dp(this,10));
@@ -217,41 +225,72 @@ public class PlayerActivity extends Activity {
         ptzButton(zoom,"− Suum",0,0,-0.6);ptzButton(zoom,"+ Suum",0,0,+0.6);
         Ui.add(root,zoom,this,7);
     }
+    /** Button feedback happens immediately; ONVIF commands are coalesced on a separate queue. */
     private void ptzButton(LinearLayout row,String title,double x,double y,double z){
         Button button=Ui.secondary(this,title);
-        LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(0,Ui.dp(this,44),1);
+        GradientDrawable normal=Ui.bg(Ui.PANEL,this,12);
+        GradientDrawable pressed=Ui.bg(Ui.PRIMARY,this,12);
+        StateListDrawable states=new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_pressed},pressed);
+        states.addState(new int[]{},normal);
+        button.setBackground(states);
+        button.setHapticFeedbackEnabled(true);
+        LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(0,Ui.dp(this,50),1);
         layout.leftMargin=Ui.dp(this,2);layout.rightMargin=Ui.dp(this,2);
         row.addView(button,layout);
-        final Runnable[] refresh={null};
+        final Runnable[] repeated={null};
         button.setOnTouchListener((v,event)->{
-            switch(event.getActionMasked()){
-                case MotionEvent.ACTION_DOWN:
-                    v.setPressed(true);
-                    if(onvif==null||!onvif.supportsPtz()){report("ONVIF PTZ pole saadaval. Kontrolli mudelit ja autentimist.");return true;}
-                    lastMove=System.currentTimeMillis();
-                    sendMove(x,y,z);
-                    refresh[0]=new Runnable(){
-                        @Override public void run(){
-                            if(v.isPressed()&&onvif!=null){
-                                sendMove(x,y,z);handler.postDelayed(this,650);
-                            }
+            if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+                v.setPressed(true);
+                v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(60).start();
+                button.setTextColor(Ui.BG);
+                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+                if(onvif==null||!onvif.supportsPtz()){
+                    report("Nupp töötab, aga kaamera ONVIF PTZ pole saadaval. Vaja on ONVIF-i tuge või tootja juhtimisliidest.");
+                    return true;
+                }
+                ptzHeld=true;lastMove=android.os.SystemClock.elapsedRealtime();
+                submitMove(x,y,z);
+                repeated[0]=new Runnable(){
+                    @Override public void run(){
+                        if(ptzHeld&&v.isPressed()){
+                            submitMove(x,y,z);
+                            handler.postDelayed(this,850);
                         }
-                    };
-                    handler.postDelayed(refresh[0],650);
-                    return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    v.setPressed(false);
-                    if(refresh[0]!=null)handler.removeCallbacks(refresh[0]);
-                    long delay=Math.max(0,250-(System.currentTimeMillis()-lastMove));
-                    handler.postDelayed(()->command("Seiska",()->onvif.stop()),delay);
-                    return true;
+                    }
+                };
+                handler.postDelayed(repeated[0],850);
+                return true;
+            }
+            if(event.getActionMasked()==MotionEvent.ACTION_UP||
+               event.getActionMasked()==MotionEvent.ACTION_CANCEL){
+                v.setPressed(false);
+                v.animate().scaleX(1f).scaleY(1f).setDuration(70).start();
+                button.setTextColor(Ui.TEXT);
+                if(repeated[0]!=null)handler.removeCallbacks(repeated[0]);
+                if(ptzHeld){
+                    ptzHeld=false;
+                    final OnvifClient client=onvif;
+                    long hold=android.os.SystemClock.elapsedRealtime()-lastMove;
+                    handler.postDelayed(()->{
+                        if(!closed&&client!=null)ptzCommands.execute(()->{
+                            try{client.stop();}catch(Exception ex){report("Seiskamise viga: "+ex.getMessage());}
+                        });
+                    },Math.max(0,180-hold));
+                }
+                return true;
             }
             return true;
         });
     }
-    private void sendMove(double x,double y,double z){
-        command("Liigutan",()->onvif.move(x,y,z));
+    private void submitMove(double x,double y,double z){
+        if(onvif==null||!ptzHeld||!ptzMoveBusy.compareAndSet(false,true))return;
+        final OnvifClient client=onvif;
+        ptzCommands.execute(()->{
+            try{client.move(x,y,z);}
+            catch(Exception err){report("Liikumise viga: "+err.getMessage());}
+            finally{ptzMoveBusy.set(false);}
+        });
     }
     private interface OnvifOperation{void run()throws Exception;}
     private void command(String verb,OnvifOperation task){
@@ -379,6 +418,7 @@ public class PlayerActivity extends Activity {
         handler.removeCallbacksAndMessages(null);
         if(onvif!=null&&onvif.supportsPtz())background.execute(()->{try{onvif.stop();}catch(Exception ignored){}});
         background.shutdown();
+        ptzCommands.shutdown();
         stopStream();super.onDestroy();
     }
 }
