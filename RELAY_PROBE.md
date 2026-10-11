@@ -1,7 +1,7 @@
-# HomeJoolink — cloud relay test (experimental, 1.6.1)
+# HomeJoolink — cloud relay test (experimental, 1.6.2)
 
 This is a **separate installable Android app** (applicationId
-`ee.homejoolink.app`) built from Joolink Viewer 1.5.1. It does
+`ee.homejoolink.app.diag162`) built from Joolink Viewer 1.5.1. It does
 not replace the existing Joolink Viewer and stores its own cloud session
 encrypted using Android Keystore.
 
@@ -38,8 +38,8 @@ comfortable with that exposure.
    https://github.com/orogdor/node-corse-2-web-server/actions/workflows/cloud-relay-probe.yml
 2. Select the newest successful run for branch
    `joolink-cloud-relay-probe` and its
-   `HomeJoolink-APK` artifact.
-3. Extract the downloaded ZIP and install `HomeJoolink.apk`.
+   `HomeJoolink-1.6.2-APK` artifact.
+3. Extract the downloaded ZIP and install `HomeJoolink-1.6.2.apk`.
 4. Sign in to Joolink in **HomeJoolink** and refresh cameras.
 5. Turn off Wi-Fi and use mobile data. Open JA-Q7G or JA-Q7T.
 6. Tap **Katseta serveri kaudu videot (KP2P/TURN)**.
