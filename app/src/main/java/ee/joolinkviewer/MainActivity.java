@@ -2,6 +2,7 @@ package ee.joolinkviewer;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -13,195 +14,226 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainActivity extends Activity {
-    private LinearLayout base, foundList, savedList;
-    private EditText nameInput, urlInput, userInput, passInput;
+    private LinearLayout base,foundList,savedList,profilesList;
+    private EditText nameInput,urlInput,userInput,passInput,onvifPortInput;
     private TextView status;
-    private Button scanButton;
-    private volatile boolean destroyed = false;
+    private Button scanButton,profileButton;
+    private volatile boolean destroyed;
+    private final Set<String> shown=ConcurrentHashMap.newKeySet();
 
-    @Override public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    @Override public void onCreate(Bundle saved){
+        super.onCreate(saved);
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(Ui.BG);
-        base = Ui.vertical(this);
-        base.setPadding(Ui.dp(this, 18), Ui.dp(this, 18), Ui.dp(this, 18), Ui.dp(this, 36));
-        scroll.addView(base);
-        setContentView(scroll);
+        ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);scroll.setBackgroundColor(Ui.BG);
+        base=Ui.vertical(this);
+        base.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,36));
+        scroll.addView(base);setContentView(scroll);
+        Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.1",25,true),this,0);
+        TextView sub=Ui.text(this,"Otse WiFi-võrgust • ONVIF juhtimine • videovoogude valik",13,false);
+        sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
+        Ui.add(base,Ui.text(this,"1. Leia oma kaamera",19,true),this,16);
+        scanButton=Ui.button(this,"Otsi automaatselt (2 etappi)");
+        scanButton.setOnClickListener(v->scan());Ui.add(base,scanButton,this,8);
+        status=Ui.text(this,"Telefon ja kaamera peavad olema samas WiFi-võrgus.",13,false);
+        status.setTextColor(Ui.MUTED);Ui.add(base,status,this,7);
+        foundList=Ui.vertical(this);Ui.add(base,foundList,this,4);
 
-        Ui.add(base, Ui.text(this, "JOOLINK VIEWER", 25, true), this, 0);
-        TextView tagline = Ui.text(this, "Kaamerapilt otse WiFi-võrgust • ilma Joolinki äpita", 13, false);
-        tagline.setTextColor(Ui.MUTED);
-        Ui.add(base, tagline, this, 1);
-        Ui.add(base, Ui.text(this, "1. Otsi kaameraid", 19, true), this, 20);
-        scanButton = Ui.button(this, "Otsi WiFi-võrgust kaameraid");
-        scanButton.setOnClickListener(v -> scan());
-        Ui.add(base, scanButton, this, 9);
-        status = Ui.text(this, "Telefon ja kaamera peavad olema samas WiFi-võrgus.", 13, false);
-        status.setTextColor(Ui.MUTED);
-        Ui.add(base, status, this, 8);
-        foundList = Ui.vertical(this);
-        Ui.add(base, foundList, this, 5);
-
-        Ui.add(base, Ui.text(this, "2. Kaamera aadress", 19, true), this, 19);
-        TextView hint = Ui.text(this, "Vali leitud kaamera või sisesta RTSP-aadress. Vaikimisi proovitakse teadaolevaid Joolinki ja üldisi RTSP-radu.", 13, false);
-        hint.setTextColor(Ui.MUTED);
-        Ui.add(base, hint, this, 3);
-        nameInput = Ui.input(this, "Kaamera nimi (näiteks Õu)");
-        nameInput.setText("Kaamera 1");
-        Ui.add(base, nameInput, this, 10);
-        urlInput = Ui.input(this, "rtsp://192.168.1.123:5540/live/ch0");
-        urlInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        Ui.add(base, urlInput, this, 9);
-        userInput = Ui.input(this, "Kasutajanimi (vajadusel)");
-        Ui.add(base, userInput, this, 9);
-        passInput = Ui.input(this, "Kaamera parool (vajadusel, ei salvestata)");
-        passInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        Ui.add(base, passInput, this, 9);
-        Button playButton = Ui.button(this, "▶ Ava kaamerapilt");
-        playButton.setOnClickListener(v -> play());
-        Ui.add(base, playButton, this, 12);
-        Button saveButton = Ui.secondary(this, "Salvesta kaamera loendisse");
-        saveButton.setOnClickListener(v -> save());
-        Ui.add(base, saveButton, this, 7);
-
-        Ui.add(base, Ui.text(this, "Minu kaamerad", 19, true), this, 21);
-        savedList = Ui.vertical(this);
-        Ui.add(base, savedList, this, 6);
+        Ui.add(base,Ui.text(this,"2. Kaamera seaded",19,true),this,20);
+        nameInput=Ui.input(this,"Kaamera nimi");nameInput.setText("Kaamera 1");Ui.add(base,nameInput,this,8);
+        urlInput=Ui.input(this,"RTSP, RTSPs, HTTP, HTTPS või HLS URL");
+        urlInput.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
+        Ui.add(base,urlInput,this,8);
+        userInput=Ui.input(this,"Kaamera kasutajanimi (vajadusel)");Ui.add(base,userInput,this,8);
+        passInput=Ui.input(this,"Kaamera parool (ei salvestata)");
+        passInput.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        Ui.add(base,passInput,this,8);
+        onvifPortInput=Ui.input(this,"ONVIF port (tavaliselt 80)");
+        onvifPortInput.setInputType(InputType.TYPE_CLASS_NUMBER);onvifPortInput.setText("80");
+        Ui.add(base,onvifPortInput,this,8);
+        TextView formats=Ui.text(this,"Toetatud lingid: RTSP (H.264/H.265), RTSPs, HTTP MJPEG, HLS (.m3u8), kui kaamera neid pakub.",12,false);
+        formats.setTextColor(Ui.MUTED);Ui.add(base,formats,this,5);
+        profileButton=Ui.secondary(this,"Leia ONVIF põhivoog ja alamvoog");
+        profileButton.setOnClickListener(v->findProfiles());Ui.add(base,profileButton,this,11);
+        profilesList=Ui.vertical(this);Ui.add(base,profilesList,this,4);
+        Button play=Ui.button(this,"▶ Ava kaamerapilt ja juhtimine");
+        play.setOnClickListener(v->play());Ui.add(base,play,this,10);
+        Button save=Ui.secondary(this,"Salvesta kaamera loendisse");
+        save.setOnClickListener(v->save());Ui.add(base,save,this,7);
+        Button history=Ui.secondary(this,"▣ Vaata ajalugu ja salvestisi");
+        history.setOnClickListener(v->openHistory());Ui.add(base,history,this,7);
+        Ui.add(base,Ui.text(this,"Minu kaamerad",19,true),this,20);
+        savedList=Ui.vertical(this);Ui.add(base,savedList,this,5);
         redrawSaved();
-
-        TextView footer = Ui.text(this,
-                "NB! Rakendus töötab ainult RTSP-d pakkuvate kaameratega. Mõned Joolinki mudelid lubavad pilti ainult tootja pilve kaudu. " +
-                "See versioon ei saa neist pilvepiirangutest mööda. Otsing vaatab ainult koduse WiFi-võrgu ühte /24 aadressivahemikku.", 12, false);
-        footer.setTextColor(Ui.MUTED);
-        Ui.add(base, footer, this, 21);
+        TextView footer=Ui.text(this,"Otsing skannib vaid telefoni kohalikku WiFi-võrku. Kui kiire RTSP otsing ei leia midagi, teeb rakendus teise ONVIF- ja laiendatud otsingu automaatselt. " +
+                "Kaamera pööramine, öörežiim ning SD-kaardi arhiiv töötavad ainult siis, kui kaamera need ONVIF kaudu välja annab. Joolinki pilve ei ühendata.",12,false);
+        footer.setTextColor(Ui.MUTED);Ui.add(base,footer,this,21);
     }
-
-    private void setStatus(String s) { if (!destroyed) runOnUiThread(() -> status.setText(s)); }
-
-    private void scan() {
-        String prefix = RtspNetwork.wifiBase(this);
-        if (prefix == null) {
-            setStatus("Ühenda telefon kodusesse WiFi-võrku ja lülita VPN vajadusel välja. Avalikke võrke ei otsita.");
-            return;
-        }
-        scanButton.setEnabled(false);
-        foundList.removeAllViews();
-        setStatus("Otsin: " + prefix + "1–254 (pordid 554, 5540, 8554, 10554) …");
-        new Thread(() -> RtspNetwork.scanHosts(prefix, new RtspNetwork.ScanCallback() {
-            @Override public void found(String ip, int port) {
-                if (destroyed) return;
-                runOnUiThread(() -> addCandidate(ip, port));
-            }
-            @Override public void finish(String message) {
-                if (destroyed) return;
-                runOnUiThread(() -> { status.setText(message); scanButton.setEnabled(true); });
-            }
-        }), "joolink-lan-scan").start();
+    private void notifyText(String s){if(!destroyed)runOnUiThread(()->{if(!destroyed)status.setText(s);});}
+    private int onvifPort(){
+        try{int p=Integer.parseInt(onvifPortInput.getText().toString());return p>=1&&p<=65535?p:80;}catch(Exception e){return 80;}
     }
-    private void addCandidate(String ip, int port) {
-        LinearLayout card = Ui.card(this);
-        Ui.add(card, Ui.text(this, "Võimalik kaamera: " + ip + ":" + port, 15, true), this, 0);
-        Button use = Ui.secondary(this, "Leia videovoog ja kasuta");
-        Ui.add(card, use, this, 7);
-        use.setOnClickListener(v -> {
-            setStatus("Kontrollin RTSP-aadresse: " + ip + ":" + port + " …");
-            use.setEnabled(false);
-            new Thread(() -> {
-                String stream = RtspNetwork.findPath(ip, port);
-                if (!destroyed) runOnUiThread(() -> {
-                    urlInput.setText(stream);
-                    nameInput.setText("Kaamera " + ip.substring(ip.lastIndexOf('.') + 1));
-                    use.setEnabled(true);
-                    setStatus("Aadress: " + stream + ". Kui pilt ei avane, muuda tee käsitsi.");
-                });
-            }, "joolink-path-check").start();
+    private void scan(){
+        String base=RtspNetwork.wifiBase(this);
+        if(base==null){notifyText("Ühenda kodusesse WiFi-võrku. VPN võib otsingut segada.");return;}
+        scanButton.setEnabled(false);foundList.removeAllViews();shown.clear();
+        notifyText("1/2: kiire RTSP otsing "+base+"1–254 …");
+        new Thread(()->{
+            final AtomicInteger first=new AtomicInteger();
+            RtspNetwork.ScanCallback cb=new RtspNetwork.ScanCallback(){
+                @Override public void found(String ip,int port){
+                    String id="rtsp:"+ip+":"+port;
+                    if(shown.add(id)){
+                        first.incrementAndGet();
+                        if(!destroyed)runOnUiThread(()->addCandidate(ip,port,false));
+                    }
+                }
+                @Override public void onvif(String ip,int port,String service){
+                    String id="onvif:"+ip+":"+port;
+                    if(shown.add(id)){
+                        if(!destroyed)runOnUiThread(()->addCandidate(ip,port,true));
+                    }
+                }
+                @Override public void status(String msg){notifyText(msg);}
+                @Override public void finish(String msg){notifyText(msg);}
+            };
+            int quick=RtspNetwork.scanHosts(base,cb);
+            if(destroyed)return;
+            if(quick==0){
+                notifyText("Kiire otsing ei leidnud kaamerat. Alustan automaatselt põhjalikku otsingut …");
+                int deep=RtspNetwork.deepScan(getApplicationContext(),base,cb);
+                notifyText(deep==0?"Mõlemad otsingud lõppesid. Kaamera võib töötada vaid Joolinki pilve kaudu või olla teises võrgus.":
+                        "Mõlemad etapid valmis: leitud "+deep+" täiendavat ühendust (kõik ei pruugi olla kaamerad).");
+            }else{
+                notifyText("Esimene otsing leidis "+quick+" võimalikku RTSP ühendust. Vajadusel saab otsingut uuesti teha.");
+            }
+            if(!destroyed)runOnUiThread(()->scanButton.setEnabled(true));
+        },"joolink-two-stage-search").start();
+    }
+    private void addCandidate(String ip,int port,boolean onvif){
+        LinearLayout card=Ui.card(this);
+        Ui.add(card,Ui.text(this,(onvif?"ONVIF seade: ":"RTSP port: ")+ip+":"+port,15,true),this,0);
+        Button use=Ui.secondary(this,onvif?"Kasuta ONVIF seadet":"Leia RTSP rada");
+        Ui.add(card,use,this,6);
+        use.setOnClickListener(v->{
+            use.setEnabled(false);nameInput.setText("Kaamera "+ip.substring(ip.lastIndexOf('.')+1));
+            if(onvif){
+                onvifPortInput.setText(String.valueOf(port));
+                urlInput.setText("rtsp://"+ip+":554/live/ch0");
+                use.setEnabled(true);
+                findProfiles();
+            }else{
+                new Thread(()->{
+                    String stream=RtspNetwork.findPath(ip,port);
+                    if(!destroyed)runOnUiThread(()->{
+                        urlInput.setText(stream);use.setEnabled(true);
+                        notifyText("Valitud "+stream+". Vajadusel sisesta kaamera parool või proovi ONVIF profiile.");
+                    });
+                },"rtsp-path-discovery").start();
+            }
         });
-        Ui.add(foundList, card, this, 8);
+        Ui.add(foundList,card,this,7);
     }
-
-    private String formUrl() {
-        String url = urlInput.getText().toString().trim();
-        if (!RtspNetwork.validUrl(url)) {
-            Toast.makeText(this, "Sisesta korrektne rtsp:// aadress.", Toast.LENGTH_LONG).show();
-            return null;
+    private String selectedIp(){
+        String url=urlInput.getText().toString().trim();
+        try{
+            Uri u=Uri.parse(url);
+            String host=u.getHost();
+            if(host!=null&&RtspNetwork.isPrivate(host))return host;
+        }catch(Exception ignored){}
+        Toast.makeText(this,"Sisesta esmalt kaamera kohaliku võrgu aadress (nt rtsp://192.168.1.10:554/live/ch0)",Toast.LENGTH_LONG).show();
+        return null;
+    }
+    private void findProfiles(){
+        String ip=selectedIp();if(ip==null)return;
+        final int port=onvifPort();
+        final String user=userInput.getText().toString().trim(),pass=passInput.getText().toString();
+        profileButton.setEnabled(false);
+        profilesList.removeAllViews();notifyText("Ühendan ONVIF teenusega: "+ip+":"+port+" …");
+        new Thread(()->{
+            try{
+                OnvifClient c=new OnvifClient(ip,port,user,pass);
+                c.connect();
+                if(!destroyed)runOnUiThread(()->{
+                    profileButton.setEnabled(true);
+                    notifyText(c.streams.isEmpty()?"ONVIF leitud, aga RTSP vooge ei tagastatud.":"ONVIF ühendus: "+c.streams.size()+" videovoogu; PTZ="+c.ptzAvailable+"; öörežiim="+c.imagingAvailable);
+                    for(OnvifClient.Stream s:c.streams){
+                        Button choose=Ui.secondary(this,"Vali: "+s.name);
+                        choose.setOnClickListener(v->{urlInput.setText(s.url);notifyText("Valitud "+s.name);});
+                        Ui.add(profilesList,choose,this,5);
+                    }
+                });
+            }catch(Exception e){if(!destroyed)runOnUiThread(()->{
+                profileButton.setEnabled(true);
+                notifyText("ONVIF ühendus ebaõnnestus: "+e.getMessage()+". Kontrolli kasutajanime, parooli või porti.");
+            });}
+        },"onvif-profiles").start();
+    }
+    private String validatedUrl(){
+        String u=urlInput.getText().toString().trim();
+        if(!RtspNetwork.validUrl(u)){
+            Toast.makeText(this,"Sisesta korrektne RTSP / HTTP / HLS aadress.",Toast.LENGTH_LONG).show();return null;
         }
-        return url;
+        return u;
     }
-    private void play() {
-        String url = formUrl();
-        if (url == null) return;
-        String user = userInput.getText().toString().trim();
-        String pass = passInput.getText().toString();
-        Intent intent = new Intent(this, PlayerActivity.class);
-        intent.putExtra("camera", nameInput.getText().toString().trim());
-        intent.putExtra("url", RtspNetwork.withCredentials(url, user, pass));
-        startActivity(intent);
+    private Intent extras(Class<?> cls){
+        Intent i=new Intent(this,cls);
+        String url=urlInput.getText().toString().trim();
+        String user=userInput.getText().toString().trim(),pass=passInput.getText().toString();
+        i.putExtra("camera",nameInput.getText().toString().trim());
+        i.putExtra("url",RtspNetwork.validUrl(url)?RtspNetwork.withCredentials(url,user,pass):"");
+        i.putExtra("camera_ip",Uri.parse(url).getHost());
+        i.putExtra("onvif_port",onvifPort());i.putExtra("user",user);i.putExtra("pass",pass);
+        return i;
     }
-    private void save() {
-        String url = formUrl();
-        if (url == null) return;
-        String user = userInput.getText().toString().trim();
-        String name = nameInput.getText().toString().trim();
-        if (name.isEmpty()) name = "Kaamera";
-        List<CameraStore.Camera> list = CameraStore.load(this);
-        String safe = RtspNetwork.stripCredentials(url);
-        boolean replaced = false;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).url.equals(safe)) {
-                list.set(i, new CameraStore.Camera(name, safe, user));
-                replaced = true;
-                break;
-            }
+    private void play(){if(validatedUrl()!=null)startActivity(extras(PlayerActivity.class));}
+    private void openHistory(){startActivity(extras(HistoryActivity.class));}
+    private void save(){
+        String url=validatedUrl();if(url==null)return;
+        String name=nameInput.getText().toString().trim();if(name.isEmpty())name="Kaamera";
+        String safe=RtspNetwork.stripCredentials(url);
+        List<CameraStore.Camera> list=CameraStore.load(this);
+        boolean replaced=false;
+        for(int k=0;k<list.size();k++)if(list.get(k).url.equals(safe)){
+            list.set(k,new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort()));
+            replaced=true;break;
         }
-        if (!replaced) list.add(new CameraStore.Camera(name, safe, user));
-        CameraStore.save(this, list);
-        redrawSaved();
-        Toast.makeText(this, "Kaamera salvestatud. Parooli ei salvestatud.", Toast.LENGTH_SHORT).show();
+        if(!replaced)list.add(new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort()));
+        CameraStore.save(this,list);redrawSaved();
+        Toast.makeText(this,"Kaamera salvestatud, parooli ei salvestatud.",Toast.LENGTH_SHORT).show();
     }
-    private void redrawSaved() {
+    private void redrawSaved(){
         savedList.removeAllViews();
-        List<CameraStore.Camera> cams = CameraStore.load(this);
-        if (cams.isEmpty()) {
-            TextView empty = Ui.text(this, "Veel pole salvestatud kaameraid.", 13, false);
-            empty.setTextColor(Ui.MUTED);
-            Ui.add(savedList, empty, this, 0);
-            return;
-        }
-        for (CameraStore.Camera cam : cams) {
-            LinearLayout item = Ui.card(this);
-            Ui.add(item, Ui.text(this, cam.name, 16, true), this, 0);
-            TextView small = Ui.text(this, cam.url, 12, false);
-            small.setTextColor(Ui.MUTED);
-            Ui.add(item, small, this, 1);
-            LinearLayout actions = new LinearLayout(this);
-            actions.setGravity(Gravity.CENTER_VERTICAL);
-            Button open = Ui.button(this, "Vali");
-            open.setOnClickListener(v -> {
-                nameInput.setText(cam.name);
-                urlInput.setText(cam.url);
-                userInput.setText(cam.username);
-                passInput.setText("");
-                Toast.makeText(this, "Kaamera valitud. Vajadusel sisesta parool.", Toast.LENGTH_SHORT).show();
+        List<CameraStore.Camera> list=CameraStore.load(this);
+        if(list.isEmpty()){Ui.add(savedList,Ui.text(this,"Salvestatud kaameraid pole.",13,false),this,2);return;}
+        for(CameraStore.Camera c:list){
+            LinearLayout item=Ui.card(this);
+            Ui.add(item,Ui.text(this,c.name,16,true),this,0);
+            TextView address=Ui.text(this,c.url,12,false);address.setTextColor(Ui.MUTED);
+            Ui.add(item,address,this,2);
+            LinearLayout buttons=new LinearLayout(this);buttons.setGravity(Gravity.CENTER_VERTICAL);
+            Button choose=Ui.button(this,"Vali");
+            choose.setOnClickListener(v->{
+                nameInput.setText(c.name);urlInput.setText(c.url);userInput.setText(c.username);
+                onvifPortInput.setText(String.valueOf(c.onvifPort));passInput.setText("");
+                Toast.makeText(this,"Kaamera valitud; vajadusel sisesta parool.",Toast.LENGTH_SHORT).show();
             });
-            actions.addView(open, new LinearLayout.LayoutParams(0, Ui.dp(this, 46), 1));
-            Button delete = Ui.secondary(this, "Kustuta");
-            delete.setOnClickListener(v -> {
-                List<CameraStore.Camera> current = CameraStore.load(this);
-                current.removeIf(x -> x.url.equals(cam.url));
-                CameraStore.save(this, current);
-                redrawSaved();
+            buttons.addView(choose,new LinearLayout.LayoutParams(0,Ui.dp(this,46),1));
+            Button del=Ui.secondary(this,"Kustuta");
+            del.setOnClickListener(v->{
+                List<CameraStore.Camera> cur=CameraStore.load(this);
+                cur.removeIf(x->x.url.equals(c.url));CameraStore.save(this,cur);redrawSaved();
             });
-            LinearLayout.LayoutParams delParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 46), 1);
-            delParams.leftMargin = Ui.dp(this, 10);
-            actions.addView(delete, delParams);
-            Ui.add(item, actions, this, 9);
-            Ui.add(savedList, item, this, 9);
+            LinearLayout.LayoutParams dlp=new LinearLayout.LayoutParams(0,Ui.dp(this,46),1);
+            dlp.leftMargin=Ui.dp(this,7);buttons.addView(del,dlp);
+            Ui.add(item,buttons,this,5);Ui.add(savedList,item,this,8);
         }
     }
-    @Override protected void onDestroy() { destroyed = true; super.onDestroy(); }
+    @Override protected void onDestroy(){destroyed=true;super.onDestroy();}
 }
