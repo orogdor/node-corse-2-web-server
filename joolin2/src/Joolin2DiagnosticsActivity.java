@@ -43,7 +43,7 @@ public final class Joolin2DiagnosticsActivity extends Activity {
             report="Diagnostikaprotsess käivitati edukalt.\n"+
                 "Varasemat Java- või Androidi krahhilogi ei leitud.\n\n"+
                 "Vajuta PROOVI RAKENDUST UUESTI. Kui kaameraäpp sulgub, "+
-                "ava Joolin2 v4 uuesti ja kopeeri siit veateade.";
+                "ava Joolin2 v6 uuesti ja kopeeri siit veateade.";
         }
         showDiagnostics();
     }
@@ -110,7 +110,7 @@ public final class Joolin2DiagnosticsActivity extends Activity {
         header.setTextSize(24);header.setTextColor(Color.WHITE);
         content.addView(header);
         TextView instructions=new TextView(this);
-        instructions.setText("See diagnostikaaken on eraldi protsessis. Vajuta Proovi rakendust uuesti. Kui Joolink sulgub, ava sama Joolin2 uuesti ning kopeeri veateade. Enne jagamist kontrolli, et tekstis ei ole paroole ega tokeneid.");
+        instructions.setText("Pilvekontoga saab proovida sisse logida ka eraldi HTTPS-ühenduse kaudu (ilma Alibaba SDK-ta). Algse Joolinki käivitamist saad testida nupuga Proovi rakendust uuesti. Enne veateate jagamist eemalda paroolid ja tokenid.");
         instructions.setTextSize(15);
         instructions.setTextColor(0xffc5d3e1);
         instructions.setPadding(0,dp(12),0,dp(18));
@@ -120,6 +120,17 @@ public final class Joolin2DiagnosticsActivity extends Activity {
             ClipboardManager board=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
             if(board!=null)board.setPrimaryClip(ClipData.newPlainText("Joolin2 veateade",report));
         });content.addView(copy);
+        Button cloud=button("Joolinki pilvekonto – SDK-ta sisselogimine");
+        cloud.setOnClickListener(v->{
+            try{
+                startActivity(new Intent(this,Joolin2CloudActivity.class));
+            }catch(Exception ex){
+                report="Pilvekonto vaate avamise viga: "+ex.getClass().getSimpleName()+
+                       ": "+String.valueOf(ex.getMessage());
+                showDiagnostics();
+            }
+        });
+        content.addView(cloud);
         Button retry=button("Proovi rakendust uuesti");
         retry.setOnClickListener(v->{
             getSharedPreferences(STORE,MODE_PRIVATE).edit()
