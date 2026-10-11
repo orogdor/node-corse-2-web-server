@@ -45,7 +45,7 @@ public class HomeActivity extends Activity {
         scroll.addView(page);setContentView(scroll);page.requestApplyInsets();
         LinearLayout bar=new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        heading=Ui.text(this,"Joolink Viewer",23,true);
+        heading=Ui.text(this,"HomeJoolink",23,true);
         bar.addView(heading,new LinearLayout.LayoutParams(0,Ui.dp(this,56),1));
         Button menu=Ui.secondary(this,"☰ Menüü");
         menu.setOnClickListener(v->openMenu());
@@ -83,7 +83,7 @@ public class HomeActivity extends Activity {
             "Logi pilvekontost välja"
         };
         new AlertDialog.Builder(this)
-            .setTitle("Joolink Vieweri menüü")
+            .setTitle("HomeJoolink — menüü")
             .setItems(options,(dialog,which)->{
                 switch(which){
                     case 0: startActivity(new Intent(this,JoolinkCloudLoginActivity.class));break;
