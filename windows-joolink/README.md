@@ -69,3 +69,9 @@ Offline inspection of the user's own original Android APK:
 - CI offline schema tests verify both login modes, original APK client_id parity and camera-list payload. GUI, VLC and actual installed EXE continue to be tested on a Windows runner.
 
 **Unverified:** This is a justified request-parity fix but cannot prove Joolink cloud device-list works on a real account. `E_000_002` may persist. Manufacturer proprietary remote P2P/cloud live video remains **not implemented**. No password or token values are logged.
+
+## Windows v1.0.8 — original APK session-token field parity
+
+Inspected original Joolink APK `LoginModelImpl.saveData()`: the original saves `LoginBean.getUser_token()` into `AccountManager.saveAccountInfo()`. The camera-list header later sends `AccountManager.getToken()`. HomeJoolink previously selected the generic JSON `token` field first and `user_token` only as fallback; if both were present, this could pass the wrong session credential. It now uses `user_token` first, matching the original app, falling back to `token` only when `user_token` is absent. CI exercises conflicting dummy token fields, a legacy fallback, and rejecting unsuccessful login even if a dummy body is present.
+
+It is still **unknown** whether this resolves the live `E_000_002` response. The manufacturer's cloud/P2P live video is not integrated. Passwords and token values are never included in diagnostic logs.

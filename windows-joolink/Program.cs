@@ -64,7 +64,24 @@ internal static class Program
                 var loginHeader = (System.Collections.Generic.Dictionary<string, object>)em["header"];
                 if (loginHeader.ContainsKey("token") || loginHeader.ContainsKey("user_id"))
                     throw new InvalidOperationException("Login unexpectedly included session credentials.");
-                return "OK - vendor camera schema and login client_id/request parity verified";
+                // Manufacturer's LoginModelImpl.saveData gets LoginBean.user_token.
+                // Ensure we never accidentally prefer a different JSON "token".
+                using var both = System.Text.Json.JsonDocument.Parse(
+                    "{\"error_code\":\"0\",\"body\":{\"user_id\":\"dummy-user\",\"token\":\"wrong-test-value\",\"user_token\":\"correct-test-value\"}}");
+                var parsed = JoolinkCloudClient.ParseLoginSession(both.RootElement);
+                if (parsed.UserId != "dummy-user" || parsed.Token != "correct-test-value")
+                    throw new InvalidOperationException("Vendor user_token priority regression.");
+                using var onlyToken = System.Text.Json.JsonDocument.Parse(
+                    "{\"error_code\":\"0\",\"body\":{\"user_id\":\"dummy-user\",\"token\":\"fallback-test-value\"}}");
+                if (JoolinkCloudClient.ParseLoginSession(onlyToken.RootElement).Token != "fallback-test-value")
+                    throw new InvalidOperationException("Token fallback regression.");
+                using var rejected = System.Text.Json.JsonDocument.Parse(
+                    "{\"error_code\":\"E_000_002\",\"body\":{\"user_id\":\"dummy-user\",\"user_token\":\"fake\"}}");
+                bool correctlyRejected = false;
+                try { JoolinkCloudClient.ParseLoginSession(rejected.RootElement); }
+                catch (InvalidOperationException) { correctlyRejected = true; }
+                if (!correctlyRejected) throw new InvalidOperationException("Rejected login accepted.");
+                return "OK - login client_id, vendor user_token precedence, server status and cloud payload tested";
             });
             return;
         }
@@ -117,7 +134,7 @@ internal static class Program
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "last-startup-error.txt");
             File.WriteAllText(path,
-                "HomeJoolink Windows v1.0.7 start error\n" +
+                "HomeJoolink Windows v1.0.8 start error\n" +
                 DateTimeOffset.Now.ToString("u") + "\n" + ex.ToString());
             return path;
         }

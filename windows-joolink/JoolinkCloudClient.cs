@@ -109,16 +109,25 @@ internal sealed class JoolinkCloudClient : IDisposable
     {
         var request = BuildLoginRequest(account, password);
         using var doc = await PostAsync("/v3/am/login", request, ct);
-        var root = doc.RootElement;
+        return ParseLoginSession(doc.RootElement);
+    }
+    // The manufacturer's LoginModelImpl.saveData() explicitly reads
+    // LoginBean.getUser_token() and stores it as AccountManager's session token.
+    // Older HomeJoolink preferred the generic "token" field when both existed,
+    // potentially sending the wrong credential to /v3/am/query_device_list.
+    internal static Session ParseLoginSession(JsonElement root)
+    {
         string loginCode = Get(root, "error_code", "code");
         if (loginCode.Length > 0 && !new[] { "0", "200", "ok", "success" }.Contains(loginCode, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException("Server lükkas sisselogimise tagasi. Kood: " + Clean(loginCode));
         var payload = Child(root, "body") ?? Child(root, "data");
         if (!payload.HasValue)
-            throw new InvalidOperationException("Server ei tagastanud seanssi. Kood: " + Clean(Get(root, "error_code", "code")));
-        string user = Get(payload.Value, "user_id", "userId"), token = Get(payload.Value, "token", "user_token");
+            throw new InvalidOperationException("Server ei tagastanud seanssi. Kood: " + Clean(loginCode));
+        string user = Get(payload.Value, "user_id", "userId");
+        string token = Get(payload.Value, "user_token");
+        if (token.Length == 0) token = Get(payload.Value, "token");
         if (user.Length == 0 || token.Length == 0)
-            throw new InvalidOperationException("Sobiv seansitoken puudub. Kood: " + Clean(Get(root, "error_code", "code")));
+            throw new InvalidOperationException("Sobiv seansitoken puudub. Kood: " + Clean(loginCode));
         return new Session(user, token);
     }
     public async Task<IReadOnlyList<CloudCamera>> CamerasAsync(Session session, bool forceQueryBind,
