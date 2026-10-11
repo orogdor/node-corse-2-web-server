@@ -44,13 +44,22 @@ public class MainActivity extends Activity {
             return insets;
         });
         base.requestApplyInsets();
-        Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.2",25,true),this,0);
+        boolean remoteMode="internet".equals(getIntent().getStringExtra("connection_mode"));
+        Ui.add(base,Ui.text(this,remoteMode?"INTERNET • MINU KAAMERAD":"KOHTVÕRK • KAAMERAD",24,true),this,0);
         TextView sub=Ui.text(this,"Kodu WiFi või VPN • ONVIF • salvestised",13,false);
+        if(remoteMode)sub.setText("Kaugvaade VPN kaudu • või sisesta turvaline RTSP võrguaadress");
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
         Ui.add(base,Ui.text(this,"1. Leia oma kaamera",19,true),this,16);
         scanButton=Ui.button(this,"Otsi automaatselt (2 etappi)");
-        scanButton.setOnClickListener(v->scan());Ui.add(base,scanButton,this,8);
-        status=Ui.text(this,"Telefon ja kaamera peavad olema samas WiFi-võrgus.",13,false);
+        scanButton.setOnClickListener(v->scan());
+        if(remoteMode){
+            scanButton.setEnabled(false);
+            scanButton.setText("WiFi otsing saadaval ainult kohalikus režiimis");
+        }
+        Ui.add(base,scanButton,this,8);
+        status=Ui.text(this,remoteMode?
+            "Internetirežiim: ava salvestatud kaamera. Vajalik on aktiivne Tailscale / muu VPN kodusesse võrku.":
+            "Telefon ja kaamera peavad olema samas WiFi-võrgus.",13,false);
         status.setTextColor(Ui.MUTED);Ui.add(base,status,this,7);
         foundList=Ui.vertical(this);Ui.add(base,foundList,this,4);
 
