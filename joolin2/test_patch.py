@@ -119,6 +119,8 @@ package="com.jooan.qiaoanzhilian.gp">
         assert 'joolin2.original_launcher' in text
         assert 'com.jooan.qiaoanzhilian.gp.MainActivity' in text
         assert 'Joolin2DiagnosticsActivity' in text
+        assert 'Joolin2CloudActivity' in text
+        assert 'ee.joolin2.decoder.v6' in text
         assert ':diagnostics' in text
         assert text.count('android.intent.category.LAUNCHER')==1
     print("Independent package manifest tests passed")
