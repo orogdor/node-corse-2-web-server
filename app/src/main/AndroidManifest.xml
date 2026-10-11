@@ -9,7 +9,7 @@
     </queries>
     <application
         android:allowBackup="false"
-        android:label="Joolink Viewer"
+        android:label="Joolink2 Relay Test"
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
         <activity android:name=".PlayerActivity" android:exported="false" />
