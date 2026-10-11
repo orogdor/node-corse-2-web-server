@@ -7,7 +7,12 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.xml.sax.InputSource;
+import android.util.Xml;
+import org.xmlpull.v1.XmlPullParser;
+import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
@@ -56,6 +61,29 @@ final class OnvifClient {
         pass=password==null?"":password;
         deviceUrl="http://"+ip+":"+(port>0?port:80)+"/onvif/device_service";
     }
+    /** Auto-detect ONVIF port independently of working RTSP port. */
+    static OnvifClient autoConnect(String ip,int preferred,String user,String password) throws Exception {
+        if(!RtspNetwork.isPrivate(ip))throw new Exception("Vaja on kaamera kohaliku võrgu IP-aadressi");
+        Set<Integer> candidates=new LinkedHashSet<>();
+        if(preferred>0&&preferred<65536)candidates.add(preferred);
+        for(int p:new int[]{8899,80,8080,5000,8000,2020,6000,5001})candidates.add(p);
+        String last="ONVIF teenust ei leitud";
+        for(int port:candidates){
+            try(Socket socket=new Socket()){
+                socket.connect(new InetSocketAddress(ip,port),350);
+            }catch(Exception ignored){continue;}
+            try{
+                OnvifClient result=new OnvifClient(ip,port,user,password);
+                if(result.connect())return result;
+                last="ONVIF port "+port+" ei tagastanud profiile";
+            }catch(Exception e){
+                last="Port "+port+": "+e.getMessage();
+                if(last.contains("HTTP 401")||last.contains("NotAuthorized"))throw new Exception(last);
+            }
+        }
+        throw new Exception(last+". Kontrolli ONVIF porti (sageli 8899) ja kaamera ONVIF kontot.");
+    }
+    int devicePort(){try{return new URL(deviceUrl).getPort();}catch(Exception e){return 80;}}
     boolean connect() throws Exception {
         // Some cameras expose ONVIF on a nonstandard port. Do not send credentials to off-host URLs.
         String body="<tds:GetCapabilities><tds:Category>All</tds:Category></tds:GetCapabilities>";
@@ -70,7 +98,7 @@ final class OnvifClient {
         ptzAvailable=ptzUrl!=null;
         imagingAvailable=imagingUrl!=null;
         recordingAvailable=recordingUrl!=null&&replayUrl!=null;
-        if(mediaUrl==null)mediaUrl="http://"+ip+":80/onvif/media_service";
+        if(mediaUrl==null)mediaUrl="http://"+ip+":"+devicePort()+"/onvif/media_service";
         Document profiles=call(mediaUrl,TRT,"GetProfiles","<trt:GetProfiles/>");
         for(Element p:all(profiles.getDocumentElement(),"Profiles")){
             String token=p.getAttribute("token");
@@ -151,7 +179,9 @@ final class OnvifClient {
             URL test=new URL(url);
             String host=test.getHost();
             // Prevent a malicious ONVIF response from redirecting camera login credentials.
-            if(!host.equalsIgnoreCase(ip)&&!InetAddress.getByName(host).equals(InetAddress.getByName(ip)))return null;
+            if("0.0.0.0".equals(host)||"127.0.0.1".equals(host)||"localhost".equalsIgnoreCase(host))
+                url=new URL(test.getProtocol(),ip,test.getPort(),test.getFile()).toExternalForm();
+            else if(!host.equalsIgnoreCase(ip)&&!InetAddress.getByName(host).equals(InetAddress.getByName(ip)))return null;
             if(!"http".equalsIgnoreCase(test.getProtocol())&&!"https".equalsIgnoreCase(test.getProtocol()))return null;
             return url;
         }catch(Exception ex){return null;}
@@ -185,6 +215,8 @@ final class OnvifClient {
                 }
             }
             InputStream in=status<400?conn.getInputStream():conn.getErrorStream();
+            if(status==401)throw new Exception("ONVIF HTTP 401 - kaamera kasutajanimi/parool on vajalik");
+            if(status==404)throw new Exception("ONVIF HTTP 404 - teenus sellel pordil puudub");
             if(in==null)throw new Exception("ONVIF HTTP "+status);
             try(InputStream stream=in){
                 Document doc=parse(stream);
@@ -234,13 +266,44 @@ final class OnvifClient {
         byte[] bytes=MessageDigest.getInstance("MD5").digest(s.getBytes(StandardCharsets.UTF_8));
         StringBuilder out=new StringBuilder();for(byte b:bytes)out.append(String.format(Locale.US,"%02x",b&255));return out.toString();
     }
+    /**
+     * Android DOM's disallow-doctype-decl feature is unsupported.
+     * Safely tokenize XML with Android XmlPullParser (DTD and entities forbidden)
+     * and build a DOM for the existing ONVIF queries.
+     */
     private static Document parse(InputStream data)throws Exception{
-        DocumentBuilderFactory f=DocumentBuilderFactory.newInstance();f.setNamespaceAware(true);
-        f.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
-        f.setFeature("http://xml.org/sax/features/external-general-entities",false);
-        f.setFeature("http://xml.org/sax/features/external-parameter-entities",false);
-        f.setExpandEntityReferences(false);
-        return f.newDocumentBuilder().parse(data);
+        DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        Document document=factory.newDocumentBuilder().newDocument();
+        XmlPullParser reader=Xml.newPullParser();
+        reader.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES,true);
+        reader.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL,false);
+        reader.setInput(data,"UTF-8");
+        Node current=document;
+        int count=0;
+        for(int event=reader.getEventType();event!=XmlPullParser.END_DOCUMENT;event=reader.nextToken()){
+            if(++count>120000)throw new Exception("ONVIF XML liiga mahukas");
+            if(event==XmlPullParser.DOCDECL||event==XmlPullParser.ENTITY_REF)
+                throw new Exception("ONVIF: DOCTYPE ja välised XML entity'd pole lubatud");
+            if(event==XmlPullParser.START_TAG){
+                String ns=reader.getNamespace(),prefix=reader.getPrefix();
+                String q=(prefix==null||prefix.isEmpty()?"":prefix+":")+reader.getName();
+                Element element=document.createElementNS(ns==null||ns.isEmpty()?null:ns,q);
+                for(int i=0;i<reader.getAttributeCount();i++){
+                    String attrNs=reader.getAttributeNamespace(i),attrPrefix=reader.getAttributePrefix(i);
+                    String attr=(attrPrefix==null||attrPrefix.isEmpty()?"":attrPrefix+":")+reader.getAttributeName(i);
+                    if(attrNs==null||attrNs.isEmpty())element.setAttribute(attr,reader.getAttributeValue(i));
+                    else element.setAttributeNS(attrNs,attr,reader.getAttributeValue(i));
+                }
+                current.appendChild(element);current=element;
+            }else if(event==XmlPullParser.END_TAG){
+                if(current.getParentNode()!=null)current=current.getParentNode();
+            }else if(event==XmlPullParser.TEXT||event==XmlPullParser.CDSECT){
+                if(current!=document)current.appendChild(document.createTextNode(reader.getText()));
+            }
+        }
+        if(document.getDocumentElement()==null)throw new Exception("ONVIF vastuses puudub XML");
+        return document;
     }
     static Element first(Element root,String local){
         if(root==null)return null;
