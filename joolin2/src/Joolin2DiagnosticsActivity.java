@@ -40,10 +40,12 @@ public final class Joolin2DiagnosticsActivity extends Activity {
             report=latestNativeFailure(prefs);
         }
         if(report.isEmpty()) {
-            launchOriginal();
-        }else {
-            showDiagnostics();
+            report="Diagnostikaprotsess käivitati edukalt.\n"+
+                "Varasemat Java- või Androidi krahhilogi ei leitud.\n\n"+
+                "Vajuta PROOVI RAKENDUST UUESTI. Kui kaameraäpp sulgub, "+
+                "ava Joolin2 v4 uuesti ja kopeeri siit veateade.";
         }
+        showDiagnostics();
     }
     private String latestNativeFailure(SharedPreferences prefs){
         if(Build.VERSION.SDK_INT<30)return "";
@@ -108,7 +110,7 @@ public final class Joolin2DiagnosticsActivity extends Activity {
         header.setTextSize(24);header.setTextColor(Color.WHITE);
         content.addView(header);
         TextView instructions=new TextView(this);
-        instructions.setText("Rakendus sulgus ootamatult. Veateade salvestati ainult sinu telefonis. Kopeeri see ja saada vestlusesse; parooli või tokenit ei ole vaja lisada.");
+        instructions.setText("See diagnostikaaken on eraldi protsessis. Vajuta Proovi rakendust uuesti. Kui Joolink sulgub, ava sama Joolin2 uuesti ning kopeeri veateade. Enne jagamist kontrolli, et tekstis ei ole paroole ega tokeneid.");
         instructions.setTextSize(15);
         instructions.setTextColor(0xffc5d3e1);
         instructions.setPadding(0,dp(12),0,dp(18));
