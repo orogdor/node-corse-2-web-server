@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 
 OLD="com.jooan.qiaoanzhilian.gp"
-NEW="ee.joolin2.decoder.v4"
+NEW="ee.joolin2.decoder.v5"
 CAMERA="com/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity.smali"
 HELPER="Lcom/jooan/qiaoanzhilian/ui/activity/play/VideoSettings;"
 CRASH="Lcom/jooan/qiaoanzhilian/ui/activity/play/Joolin2CrashReporter;"
@@ -71,6 +71,26 @@ def guard_application_oncreate(text):
     updated=updated[:local2.end()]+gate+updated[local2.end():]
     return text[:m.start()]+updated+text[m.end():]
 
+def bypass_failing_ali_sdk_init(smali):
+    """Avoid only the SDKInitHelper.init that throws missing Alibaba app credentials.
+    Keep all subsequent original camera/account initialization intact.
+    """
+    block=re.compile(r'(?ms)^\.method[^\n]*\binitAliLV\(\)V[^\n]*\n.*?^\.end method')
+    matches=list(block.finditer(smali))
+    if len(matches)!=1:
+        raise ValueError("Expected precisely one ComponentManager.initAliLV method")
+    method=matches[0].group()
+    invocation=re.compile(
+        r'(?m)^[ \t]*invoke-static(?:/range)?[ \t]+\{[^}]*\},[ \t]*'
+        r'Lcom/jooan/common/ali/SDKInitHelper;->init\([^)]*\)V[ \t]*$')
+    calls=list(invocation.finditer(method))
+    if len(calls)!=1:
+        raise ValueError("Expected precisely one SDKInitHelper.init invocation in initAliLV")
+    modified=invocation.sub(
+        "    # Joolin2 test: Alibaba gateway initialization skipped: no embedded SDK app credential after APK resigning.",
+        method, count=1)
+    return smali[:matches[0].start()]+modified+smali[matches[0].end():]
+
 def qualified(name):
     if not name:return name
     if name.startswith("."):return OLD+name
@@ -112,7 +132,7 @@ def patch_manifest(file):
     if app is None:raise ValueError("application element absent")
     app_class=app.get(ANDROID+"name")
     if app_class:app_class=qualified(app_class)
-    app.set(ANDROID+"label","Joolin2 v4")
+    app.set(ANDROID+"label","Joolin2 v5")
     app.set(ANDROID+"allowBackup","false")
     root.attrib.pop(ANDROID+"sharedUserId",None)
     # Interpose diagnostic launcher, forwarding normally to the original launch.
@@ -134,7 +154,7 @@ def patch_manifest(file):
     diag.set(ANDROID+"name",DIAGNOSTICS)
     diag.set(ANDROID+"exported","true")
     diag.set(ANDROID+"process",":diagnostics")
-    diag.set(ANDROID+"label","Joolin2 v4")
+    diag.set(ANDROID+"label","Joolin2 v5")
     filt=ET.SubElement(diag,"intent-filter")
     action=ET.SubElement(filt,"action")
     action.set(ANDROID+"name","android.intent.action.MAIN")
@@ -172,6 +192,15 @@ def main():
     contents=guard_application_oncreate(contents)
     apps[0].write_text(contents,encoding="utf-8")
     print("Crash recorder inserted in:",app_class)
+    # The original signature-dependent Alibaba SecurityGuard key lookup fails
+    # after APK repackaging. Keep Jooan login initialization and diagnose later issues.
+    ali_path="com/jooan/qiaoanzhilian/ComponentManager.smali"
+    ali_files=list(base.glob("smali*/"+ali_path))
+    if len(ali_files)!=1:raise ValueError("ComponentManager.smali not found")
+    ali_contents=ali_files[0].read_text(encoding="utf-8")
+    ali_contents=bypass_failing_ali_sdk_init(ali_contents)
+    ali_files[0].write_text(ali_contents,encoding="utf-8")
+    print("Joolin2 v5: skipped exactly one failing Alibaba SDKInitHelper.init call")
     matches=list(base.glob("smali*/"+CAMERA))
     if len(matches)!=1:
         raise SystemExit("Expected one CameraPlayerActivity.smali, got "+str(len(matches)))

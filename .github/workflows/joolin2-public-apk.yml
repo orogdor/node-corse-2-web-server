@@ -63,13 +63,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='joolin2-decoder-public-v4'
+          TAG='joolin2-decoder-public-v5'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" 'Joolin2-Decoder-Test.apk' --clobber
           else
             gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
               --target joolin2-public \
-              --title "Joolin2 v4 – isolated crash viewer" \
-              --notes "Joolin2 v4 diagnostic TEST APK. Starts in a separate :diagnostics Android process and skips vendor Application initialization only there, enabling an on-device crash report even when Joolink crashes immediately. Tap retry to launch actual vendor app. Different package ID ee.joolin2.decoder.v4. Does not prove login/video work. Android SDK signing and static tests only. Unofficial Joolink derivative." \
+              --title "Joolin2 v5 – Alibaba SDK startup workaround" \
+              --notes "Joolin2 v5 TEST: bypass exactly one crashing Alibaba IoTSmart initialization call in ComponentManager.initAliLV to allow remaining Jooan account startup. This is a workaround for a missing SDK key caused by APK repackaging and may disable Alibaba camera functions. Crash diagnostics retained. Samsung login and video NOT verified. Package ee.joolin2.decoder.v5." \
               --latest=false
           fi

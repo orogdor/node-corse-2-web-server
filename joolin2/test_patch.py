@@ -2,7 +2,7 @@
 """Unit checks for side-by-side package name rewrite and smali hooks."""
 import pathlib,sys,tempfile
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
-from patch import hook_method,patch_manifest,guard_application_oncreate,HELPER,NEW
+from patch import hook_method,patch_manifest,guard_application_oncreate,bypass_failing_ali_sdk_init,HELPER,NEW
 
 METHODS=""".class public Lcom/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity;
 .super Landroid/app/Activity;
@@ -68,6 +68,23 @@ def test_diagnostic_guard():
     assert patched.count("return-void")==2
     print("Separate-process early Application guard passed")
 
+def test_ali_sdk_init_bypass():
+    sample=""".class public Lcom/jooan/qiaoanzhilian/ComponentManager;
+.super Ljava/lang/Object;
+.method private static initAliLV()V
+    .locals 1
+    sget-object v0, Lcom/jooan/qiaoanzhilian/ComponentManager;->sApp:Landroid/app/Application;
+    invoke-static {v0}, Lcom/jooan/common/ali/SDKInitHelper;->init(Landroid/app/Application;)V
+    invoke-static {v0}, Lcom/jooan/biz_am/AMManager;->init(Landroid/app/Application;)V
+    return-void
+.end method
+"""
+    modified=bypass_failing_ali_sdk_init(sample)
+    assert "SDKInitHelper;->init(" not in modified
+    assert "AMManager;->init(" in modified
+    assert "Alibab" in modified
+    print("Isolate failing Alibaba SDK initialization test passed")
+
 def test_manifest():
     xml='''<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -108,5 +125,6 @@ package="com.jooan.qiaoanzhilian.gp">
 
 if __name__=="__main__":
     test_hooks()
+    test_ali_sdk_init_bypass()
     test_diagnostic_guard()
     test_manifest()
