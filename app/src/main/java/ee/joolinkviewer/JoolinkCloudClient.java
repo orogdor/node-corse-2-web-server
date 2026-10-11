@@ -83,6 +83,9 @@ final class JoolinkCloudClient {
         }
         return new Session(userId,token,name);
     }
+    /** GetDeviceListResponse in the vendor's APK extends NewBaseHeader:
+     * the device_info_list field is ROOT level, not under body/data.
+     */
     static JSONArray devices(Session session) throws Exception{
         JSONObject body=new JSONObject();
         body.put("header",header(session.userId,session.token));
@@ -90,14 +93,52 @@ final class JoolinkCloudClient {
         body.put("app_version","1.0");
         body.put("phone_model",Build.MODEL);
         body.put("package_name",PACKAGE);
-        // The vendor also adds an open_id_app_key from its own account SDK.
-        // We do not copy proprietary embedded keys; server may reject this trial.
         JSONObject response=post("/v3/am/query_device_list",body);
-        JSONObject payload=response.optJSONObject("body");
-        if(payload==null)payload=response.optJSONObject("data");
-        if(payload==null)throw new AuthException("Seadmete päringule ei tulnud nimekirja: "+safeError(response.optString("error_msg","tundmatu serverivastus")));
-        JSONArray list=payload.optJSONArray("device_info_list");
-        return list==null?new JSONArray():list;
+        String code=response.optString("error_code","");
+        if(!code.isEmpty()&&!isSuccess(code)){
+            throw new AuthException("Kaamerate päring ebaõnnestus (kood "+safeError(code)+
+                    "): "+safeError(response.optString("error_msg","tundmatu viga")));
+        }
+        JSONArray list=findDevices(response,0);
+        if(list!=null)return list;
+        throw new AuthException("Server vastas "+safeError(code)+
+            ", kuid tuntud kaameraloendi välja ei olnud. Vastuse struktuur: "+
+            safeStructure(response));
+    }
+    private static boolean isSuccess(String code){
+        return "success".equalsIgnoreCase(code)||"0".equals(code)||"200".equals(code)||
+               "ok".equalsIgnoreCase(code);
+    }
+    private static JSONArray findDevices(JSONObject json,int depth){
+        if(json==null||depth>3)return null;
+        // Real Joolink GetDeviceListResponse: response.device_info_list.
+        for(String field:new String[]{"device_info_list","device_list","deviceList","devices"}){
+            JSONArray array=json.optJSONArray(field);
+            if(array!=null)return array;
+        }
+        for(String wrap:new String[]{"body","body_info","data","result","payload"}){
+            JSONObject inner=json.optJSONObject(wrap);
+            if(inner!=null){
+                JSONArray array=findDevices(inner,depth+1);
+                if(array!=null)return array;
+            }
+        }
+        return null;
+    }
+    /** Never include JSON values: responses could contain tokens, device IDs or account info. */
+    private static String safeStructure(JSONObject json){
+        java.util.ArrayList<String> fields=new java.util.ArrayList<>();
+        java.util.Iterator<String> keys=json.keys();
+        int count=0;
+        while(keys.hasNext()&&count++<18){
+            String k=keys.next();
+            String normalized=k.toLowerCase(Locale.ROOT);
+            // Do not surface unknown dynamic key material; only approved field names.
+            if(normalized.matches("[a-z_]{2,28}"))
+                fields.add(k);
+        }
+        java.util.Collections.sort(fields);
+        return fields.toString();
     }
     static JSONObject post(String path,JSONObject body) throws Exception{
         if(!path.startsWith("/v3/am/"))throw new IllegalArgumentException("Unexpected cloud API path");
