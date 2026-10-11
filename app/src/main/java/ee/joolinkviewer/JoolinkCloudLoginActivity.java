@@ -41,7 +41,7 @@ public class JoolinkCloudLoginActivity extends Activity {
             return insets;
         });
         scroll.addView(root);setContentView(scroll);root.requestApplyInsets();
-        Ui.add(root,Ui.text(this,"Joolinki pilvekonto – TEST",23,true),this,3);
+        Ui.add(root,Ui.text(this,"Joolinki pilvekonto",23,true),this,3);
         TextView lead=Ui.text(this,
             "Otsene Joolinki kontoga sisselogimine tootja HTTPS-serverisse. Parooli ei salvestata; edukas seansitoken salvestatakse krüpteeritult Android Keystore'i abil, et saaksid kaamerate nimekirja avada ilma uuesti sisse logimata. Pilvevideo vajab veel eraldi tuge.",13,false);
         lead.setTextColor(Ui.MUTED);Ui.add(root,lead,this,10);
