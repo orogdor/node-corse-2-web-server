@@ -24,6 +24,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.Set;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,6 +53,10 @@ public class JoolinkApiInspector extends Activity {
       "(?i)/(?:api/)?(?:v[0-9]+/)?(?:user|account|auth|login|signin|token|device|camera|cloud|p2p|stream|service)(?:/[a-z0-9_./-]{0,70})?");
     private final Set<String> hosts=new TreeSet<>();
     private final Set<String> routes=new TreeSet<>();
+    private final Set<String> urlHosts=new TreeSet<>();
+    private final Set<String> urlRoutes=new TreeSet<>();
+    private final Set<String> brands=new TreeSet<>();
+    private final Set<String> sdkModules=new TreeSet<>();
     private TextView info,results;
     private Button copy;
     private String report="";
@@ -72,9 +80,9 @@ public class JoolinkApiInspector extends Activity {
         scroll.addView(root);
         setContentView(scroll);
         root.requestApplyInsets();
-        Ui.add(root,Ui.text(this,"Joolinki pilveühenduse uuring",22,true),this,4);
+        Ui.add(root,Ui.text(this,"Joolinki pilveühenduse uuring 2",22,true),this,4);
         TextView hint=Ui.text(this,
-          "See test otsib sinu telefonis asuvast Joolinki APK-failist serverite nimesid ja API radade viiteid. Ei kasuta ega kogu paroole. Kõik toimub telefonis, midagi ei saadeta võrku. See EI loo veel Joolinki kontosse sisselogimist.",13,false);
+          "Täiustatud uuring: eristab APK-s olevaid päris URL-e üldistest Alibaba teekidest ning kontrollib rohkem komponente. Ei loe kasutaja kontot, paroole ega sessioone. Analüüs toimub telefonis ja midagi ei saadeta serverisse. See ei loo veel Joolinki sisselogimist.",13,false);
         hint.setTextColor(Ui.MUTED);Ui.add(root,hint,this,8);
         Button installed=Ui.button(this,"Uuri paigaldatud Joolinki rakendust");
         installed.setOnClickListener(v->scanInstalled());
@@ -137,7 +145,8 @@ public class JoolinkApiInspector extends Activity {
     private interface StreamOpener{InputStream open() throws Exception;}
     private void runScan(StreamOpener file,String source){
         if(working)return;
-        working=true;hosts.clear();routes.clear();report="";
+        working=true;hosts.clear();routes.clear();urlHosts.clear();
+        urlRoutes.clear();brands.clear();sdkModules.clear();report="";
         copy.setEnabled(false);results.setText("");
         info.setText("Uurin APK sisu kohapeal …");
         new Thread(()->{
@@ -158,82 +167,133 @@ public class JoolinkApiInspector extends Activity {
         },"joolink-apk-offline-inspector").start();
     }
     private String inspect(StreamOpener input,String source)throws Exception{
-        int files=0;
+        int files=0,dex=0,nativeLibraries=0,config=0;
+        long bytes=0;
         byte[] buffer=new byte[65536];
         try(InputStream in=new BufferedInputStream(input.open());
             ZipInputStream zip=new ZipInputStream(in)){
             ZipEntry e;
             while((e=zip.getNextEntry())!=null){
                 String name=e.getName().toLowerCase(Locale.ROOT);
-                // Only app code, native libs and small textual configs; skip video/assets.
-                boolean inspect=name.matches("classes[0-9]*\\.dex")||
-                    name.matches("lib/.+\\.so")||
-                    (name.startsWith("assets/")&&(name.endsWith(".json")||
-                       name.endsWith(".xml")||name.endsWith(".properties")||name.endsWith(".txt")));
-                if(!inspect||e.isDirectory())continue;
-                files++;
-                String carry="";
-                int r;long read=0;
-                while((r=zip.read(buffer))!=-1){
-                    read+=r;
-                    if(read>35_000_000)break; // one component cap
-                    String segment=carry+new String(buffer,0,r,StandardCharsets.ISO_8859_1);
+                boolean isDex=name.matches("classes[0-9]*\\.dex");
+                boolean isLibrary=name.matches("lib/(?:arm64-v8a|armeabi-v7a)/[^/]+\\.so");
+                boolean isConfig=(name.startsWith("assets/")||name.startsWith("res/raw/"))&&
+                        (name.endsWith(".json")||name.endsWith(".xml")||
+                        name.endsWith(".properties")||name.endsWith(".txt")||
+                        name.endsWith(".cfg")||name.endsWith(".ini"));
+                if((!isDex&&!isLibrary&&!isConfig)||e.isDirectory())continue;
+                files++;if(isDex)dex++;if(isLibrary)nativeLibraries++;if(isConfig)config++;
+                String carry="";int read;long fileBytes=0;
+                long limit=isDex?50000000L:(isLibrary?8500000L:12000000L);
+                while(fileBytes<limit&&(read=zip.read(buffer,0,
+                        (int)Math.min(buffer.length,limit-fileBytes)))!=-1){
+                    fileBytes+=read;bytes+=read;
+                    String segment=carry+new String(buffer,0,read,StandardCharsets.ISO_8859_1);
                     extract(segment);
-                    carry=segment.substring(Math.max(0,segment.length()-250));
+                    carry=segment.substring(Math.max(0,segment.length()-300));
                 }
                 zip.closeEntry();
-                if(files>=110)break;
+                if(files>=600||bytes>250000000)break;
             }
         }
         StringBuilder out=new StringBuilder();
-        out.append("Joolink Viewer – pilveliidesed (APK analüüs, OFFLINE)\n");
+        out.append("Joolink Viewer – PILVE DIAGNOSTIKA 2 (OFFLINE)\n");
         out.append("Allikas: ").append(source).append("\n");
-        out.append("Kontrollitud komponente: ").append(files).append("\n");
-        out.append("Paroole, token'eid ja API-vastuseid pole loetud.\n\n");
-        out.append("Serveri domeenid (võivad sisaldada SDK/reklaamide domeene):\n");
-        if(hosts.isEmpty())out.append("Ühtegi sobivat domeeni ei leitud.\n");
-        else for(String host:hosts)out.append(" • ").append(host).append("\n");
-        out.append("\nVõimalikud autentimis- ja seadme API rajad:\n");
-        if(routes.isEmpty())out.append("Loetavaid API radu ei leitud.\n");
-        else for(String route:routes)out.append(" • ").append(route).append("\n");
-        out.append("\nNeed on APK-st leitud viited, mitte kinnitatud ega töötavad serveri API-d.\n");
+        out.append("Komponente: ").append(files).append(" (DEX ").append(dex)
+           .append(", native ").append(nativeLibraries)
+           .append(", konfiguratsioon ").append(config).append(")\n");
+        out.append("Paroole, tokeneid ega telefoni kontot ei loetud. Serveriparinguid ei tehtud.\n\n");
+        out.append("1. JOOLINK/JOOAN spetsiifilised viited (kõrgem prioriteet):\n");
+        appendNames(out,brands,40,"Joolinki-spetsiifilisi domeene ei leitud.");
+        out.append("\n2. Serverid, mis esinesid HTTPS/HTTP aadressis:\n");
+        appendNames(out,urlHosts,70,"Päris HTTP/HTTPS aadressides domeene ei leitud.");
+        out.append("\n3. URL-ides esinenud võimalikud API rajad (mitte klassinimed):\n");
+        appendNames(out,urlRoutes,55,"Tuvastatud URL-ides sobivaid API radu ei leitud.");
+        out.append("\n4. Tuvastatud integreeritud SDK moodulid:\n");
+        appendNames(out,sdkModules,25,"Ühtegi teadaolevat SDK viidet ei leitud.");
+        out.append("\n5. Muud tõenäolised serverid (sh Alibaba SDK):\n");
+        TreeSet<String> other=new TreeSet<>(hosts);
+        other.removeAll(urlHosts);other.removeAll(brands);
+        appendNames(out,other,45,"Täiendavaid domeene ei leitud.");
+        out.append("\nMÄRKUS: staatilised viited ei kinnita, et neid teenuseid praegu kasutatakse. ");
+        out.append("Joolinki konto sisselogimiseks on vaja kinnitatud serveriaadressi, päringuvormingut ja rakenduse autentimismehhanismi.\n");
         return out.toString();
     }
+    private static void appendNames(StringBuilder out,Set<String> list,int limit,String empty){
+        if(list.isEmpty()){out.append(empty).append("\n");return;}
+        int n=0;
+        for(String item:list){if(n++>=limit)break;out.append(" • ").append(item).append("\n");}
+        if(list.size()>limit)out.append(" ... ").append(list.size()-limit).append(" täiendavat kirjet peidetud\n");
+    }
     private void extract(String segment){
+        // A URL is stronger evidence than a coincidental Java class/package name.
         Matcher urls=URLS.matcher(segment);
         while(urls.find()){
             String raw=urls.group();
             try{
-                // Strip all URL path/query metadata before collecting hosts.
                 URI uri=new URI(raw);
-                String host=uri.getHost();
-                if(host!=null)keepHost(host);
-                String path=uri.getPath();
-                if(path!=null)keepRoute(path);
+                String host=uri.getHost(),path=uri.getPath();
+                if(host==null)continue;
+                if(keepHost(host)){
+                    if(urlHosts.size()<500)urlHosts.add(host.toLowerCase(Locale.ROOT));
+                    if(path!=null)keepRoute(path,true);
+                }
             }catch(Exception ignored){}
         }
         Matcher names=HOSTS.matcher(segment);
         while(names.find())keepHost(names.group());
-        Matcher endpoints=ENDPOINTS.matcher(segment);
-        while(endpoints.find())keepRoute(endpoints.group());
+        Matcher api=ENDPOINTS.matcher(segment);
+        while(api.find())keepRoute(api.group(),false);
+        if(segment.contains("IoTSmart")&&sdkModules.size()<40)
+            sdkModules.add("Alibaba Link Living: IoTSmart");
+        if(segment.contains("OpenAccount")&&sdkModules.size()<40)
+            sdkModules.add("Alibaba OpenAccount (konto SDK)");
+        if(segment.contains("IoTCredential")&&sdkModules.size()<40)
+            sdkModules.add("Alibaba IoTCredential");
+        if(segment.contains("LinkVisual")&&sdkModules.size()<40)
+            sdkModules.add("Alibaba LinkVisual video SDK");
+        if(segment.contains("KP2P")&&sdkModules.size()<40)
+            sdkModules.add("KP2P seadmepõhine P2P");
     }
-    private void keepHost(String host){
+    private boolean keepHost(String host){
         String h=host.toLowerCase(Locale.ROOT);
-        if(h.length()<5||h.length()>110||hosts.size()>=100)return;
+        if(h.length()<7||h.length()>130||hosts.size()>=1200)return false;
+        if(!h.matches("[a-z0-9.-]+")||!h.contains("."))return false;
+        String[] parts=h.split("\\.");
+        if(parts.length<2)return false;
+        String tld=parts[parts.length-1];
+        if(tld.length()<2||tld.length()>14)return false;
+        if(h.startsWith("com.")||h.startsWith("org.")||h.startsWith("net.")||
+           h.startsWith("java.")||h.startsWith("javax.")||
+           h.startsWith("android.")||h.startsWith("kotlin.")||
+           h.startsWith("support.")||h.startsWith("t."))return false;
         if(h.contains("google")||h.contains("facebook")||h.contains("doubleclick")||
-           h.contains("firebase")||h.contains("amazonaws")||h.contains("android")||
-           h.contains("maven")||h.contains("w3.org")||h.contains("apache")||
-           h.contains("schemas")||h.contains("gstatic"))return;
-        if(!h.matches("[a-z0-9.-]+")||!h.contains("."))return;
+           h.contains("firebase")||h.contains("amazonaws")||h.contains("w3.org")||
+           h.contains("gstatic")||h.contains("schemas")||
+           h.contains("gradle")||h.contains("maven")||h.contains("apache"))return false;
         hosts.add(h);
+        if(h.contains("jooan")||h.contains("joolink")||h.contains("qiaoan")||
+           h.contains("joo-")||h.contains("joocom")){
+            if(brands.size()<80)brands.add(h);
+        }
+        return true;
     }
-    private void keepRoute(String path){
-        if(path==null||path.length()<5||routes.size()>=100)return;
+    private void keepRoute(String path,boolean verifiedUrl){
+        if(path==null||path.length()<4)return;
+        // Query, fragments, and embedded identifiers are NEVER copied to the report.
         String clean=path.split("[?#]",2)[0];
         if(!clean.matches("/[a-zA-Z0-9_./-]{4,100}"))return;
         if(!ENDPOINTS.matcher(clean).find())return;
-        // No query params, credentials or tokens included in output.
-        routes.add(clean);
+        // A longer path can contain account/device IDs; keep only first two segments.
+        String[] p=clean.split("/");
+        StringBuilder safe=new StringBuilder();
+        for(int i=1;i<Math.min(p.length,4);i++){
+            if(p[i].length()>25||p[i].matches(".*[0-9]{5,}.*"))break;
+            safe.append('/').append(p[i]);
+        }
+        if(safe.length()<4)return;
+        if(verifiedUrl&&urlRoutes.size()<220)urlRoutes.add(safe.toString());
+        else if(routes.size()<600)routes.add(safe.toString());
     }
     private void copyReport(){
         ClipboardManager clip=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
