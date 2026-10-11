@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 
 OLD="com.jooan.qiaoanzhilian.gp"
-NEW="ee.joolin2.decoder.v5"
+NEW="ee.joolin2.decoder.v6"
 CAMERA="com/jooan/qiaoanzhilian/ui/activity/play/CameraPlayerActivity.smali"
 HELPER="Lcom/jooan/qiaoanzhilian/ui/activity/play/VideoSettings;"
 CRASH="Lcom/jooan/qiaoanzhilian/ui/activity/play/Joolin2CrashReporter;"
@@ -132,7 +132,7 @@ def patch_manifest(file):
     if app is None:raise ValueError("application element absent")
     app_class=app.get(ANDROID+"name")
     if app_class:app_class=qualified(app_class)
-    app.set(ANDROID+"label","Joolin2 v5")
+    app.set(ANDROID+"label","Joolin2 v6")
     app.set(ANDROID+"allowBackup","false")
     root.attrib.pop(ANDROID+"sharedUserId",None)
     # Interpose diagnostic launcher, forwarding normally to the original launch.
@@ -154,12 +154,20 @@ def patch_manifest(file):
     diag.set(ANDROID+"name",DIAGNOSTICS)
     diag.set(ANDROID+"exported","true")
     diag.set(ANDROID+"process",":diagnostics")
-    diag.set(ANDROID+"label","Joolin2 v5")
+    diag.set(ANDROID+"label","Joolin2 v6")
     filt=ET.SubElement(diag,"intent-filter")
     action=ET.SubElement(filt,"action")
     action.set(ANDROID+"name","android.intent.action.MAIN")
     category=ET.SubElement(filt,"category")
     category.set(ANDROID+"name","android.intent.category.LAUNCHER")
+    # Independent Joolink HTTPS cloud login view runs only in our isolated
+    # diagnostics process; no Alibaba/LinkVisual SDK is used here.
+    cloud=ET.SubElement(app,"activity")
+    cloud.set(ANDROID+"name",
+        "com.jooan.qiaoanzhilian.ui.activity.play.Joolin2CloudActivity")
+    cloud.set(ANDROID+"exported","false")
+    cloud.set(ANDROID+"process",":diagnostics")
+    cloud.set(ANDROID+"label","Joolin2 v6 – Pilvekonto")
     tree.write(file,encoding="utf-8",xml_declaration=True)
     print("Joolin2 diagnostics launch original activity:",launcher_name)
     print("Patched manifest app ID:",NEW)
@@ -200,7 +208,7 @@ def main():
     ali_contents=ali_files[0].read_text(encoding="utf-8")
     ali_contents=bypass_failing_ali_sdk_init(ali_contents)
     ali_files[0].write_text(ali_contents,encoding="utf-8")
-    print("Joolin2 v5: skipped exactly one failing Alibaba SDKInitHelper.init call")
+    print("Joolin2 v6: skipped exactly one failing Alibaba SDKInitHelper.init call")
     matches=list(base.glob("smali*/"+CAMERA))
     if len(matches)!=1:
         raise SystemExit("Expected one CameraPlayerActivity.smali, got "+str(len(matches)))
