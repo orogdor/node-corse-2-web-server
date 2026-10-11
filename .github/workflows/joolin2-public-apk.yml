@@ -1,0 +1,75 @@
+name: Build public Joolin2 decoder test APK
+on:
+  push:
+    branches: [joolin2-public]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  joolin2-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test mod injection logic
+        run: python3 joolin2/test_patch.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK API 35
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Download checksum-verified original Joolink APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p private-input
+          curl --fail --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 900 \
+            -H "User-Agent: Mozilla/5.0 Joolin2-Android-Build" \
+            -o private-input/Joolink-original-base.apk \
+            'https://d.apkpure.net/b/APK/com.jooan.qiaoanzhilian.gp?version=latest'
+          echo '87e89a2142249e020b2dcb9c5c964d4f06675c4de2370a990335b1bab962a395  private-input/Joolink-original-base.apk' | sha256sum -c -
+      - name: Download Apktool 2.12.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            -o apktool.jar \
+            'https://github.com/iBotPeaches/Apktool/releases/download/v2.12.1/apktool_2.12.1.jar'
+          test "$(stat -c%s apktool.jar)" -gt 1000000
+          java -jar apktool.jar --version | grep -F '2.12.1'
+      - name: Build Joolin2 standalone APK
+        env:
+          APKTOOL_JAR: ${{ github.workspace }}/apktool.jar
+          JOOLIN2_KEYSTORE_B64: ${{ secrets.JOOLIN2_KEYSTORE_B64 }}
+          JOOLIN2_KEY_ALIAS: ${{ secrets.JOOLIN2_KEY_ALIAS }}
+          JOOLIN2_KEY_PASSWORD: ${{ secrets.JOOLIN2_KEY_PASSWORD }}
+        run: bash joolin2/build.sh private-input/Joolink-original-base.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Joolin2-Decoder-Public-APK
+          path: Joolin2-Decoder-Test.apk
+          if-no-files-found: error
+      - name: Publish Joolin2 direct-download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='joolin2-decoder-public-v1'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" 'Joolin2-Decoder-Test.apk' --clobber
+          else
+            gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
+              --target joolin2-public \
+              --title "Joolin2 – Unofficial decoder options (test APK)" \
+              --notes "Unofficial experimental Joolink 5.3.8.2 derivative. Different Android package name ee.joolin2.decoder. Adds Video menu with auto/software/hardware decoder selection and experimental color correction. Built from checksum-verified vendor APK. Android-signature and camera/login compatibility are not verified on real devices. Third-party rights remain with their owners." \
+              --latest=false
+          fi
