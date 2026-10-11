@@ -61,5 +61,11 @@ fi
 echo '[8/8] Validate signing and APK properties'
 "$BUILDTOOLS/apksigner" verify --verbose "$OUT"
 "$BUILDTOOLS/aapt" dump badging "$OUT" | grep -E "package:|application-label:"
+"$BUILDTOOLS/aapt" dump permissions "$OUT" > "$WORK/permissions.txt"
+if grep -E 'com[.]jooan[.]qiaoanzhilian[.]gp[.](permission[.]|AGOO|ACCS)' "$WORK/permissions.txt";then
+    echo "ERROR: duplicate vendor permission names found, refusing to publish Joolin2"
+    exit 1
+fi
+grep 'ee.joolin2.decoder' "$WORK/permissions.txt" | head -n 14 || true
 ls -lh "$OUT"
 echo "Joolin2 APK: $OUT"
