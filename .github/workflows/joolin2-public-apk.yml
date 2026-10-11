@@ -70,6 +70,6 @@ jobs:
             gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
               --target joolin2-public \
               --title "Joolin2 v3 – post-login crash diagnostics" \
-              --notes "Joolin2 v3 TEST: uses separate ee.joolin2.decoder.v3 package ID, adds local crash diagnostics displayed after a post-login failure, and adjusts package-name constants. May still crash until real Samsung error details are gathered. Automated signing/build tested, camera/login operation not yet proven. Experimental video decoder and color menu. Unofficial Joolink APK derivative."
+              --notes "Joolin2 v3 TEST: uses separate ee.joolin2.decoder.v3 package ID, adds local crash diagnostics displayed after a post-login failure, and adjusts package-name constants. May still crash until real Samsung error details are gathered. Automated signing/build tested, camera/login operation not yet proven. Experimental video decoder and color menu. Unofficial Joolink APK derivative." \
               --latest=false
           fi
