@@ -70,6 +70,6 @@ jobs:
             gh release create "$TAG" 'Joolin2-Decoder-Test.apk' \
               --target joolin2-public \
               --title "Joolin2 v4 – isolated crash viewer" \
-              --notes "Joolin2 v4 diagnostic TEST APK. Starts in a separate :diagnostics Android process and skips vendor Application initialization only there, enabling an on-device crash report even when Joolink crashes immediately. Tap retry to launch actual vendor app. Different package ID ee.joolin2.decoder.v4. Does not prove login/video work. Android SDK signing and static tests only. Unofficial Joolink derivative." \\
+              --notes "Joolin2 v4 diagnostic TEST APK. Starts in a separate :diagnostics Android process and skips vendor Application initialization only there, enabling an on-device crash report even when Joolink crashes immediately. Tap retry to launch actual vendor app. Different package ID ee.joolin2.decoder.v4. Does not prove login/video work. Android SDK signing and static tests only. Unofficial Joolink derivative." \
               --latest=false
           fi
