@@ -11,3 +11,10 @@ No passwords or tokens are saved to disk. Windows test app is unsigned. Extract 
 The code ports the existing experimental Android Joolink Viewer v1.5.1 cloud REST implementation. VideoLAN packages have separate LGPL and applicable native component licenses.
 
 Build: dotnet publish windows-joolink/HomeJoolink.csproj -c Release -r win-x64 --self-contained true -o publish
+
+
+## Windows single-file .exe (v1.0.1)
+
+GitHub Actions publishes `HomeJoolink-Windows-v1.0.1.exe` as one self-contained Windows x64 application without ZIP or separate .NET installation. To accommodate LibVLC, the runtime extracts native components under the user's private %TEMP%/.net folder on launch; this is an expected implementation detail. It does not need an installer. The EXE is unsigned, so Windows SmartScreen may display an unknown publisher warning.
+
+There is a --self-test <outputfile> mode used during the CI Windows build to verify VLC library initialization without requiring a camera connection. This does not verify remote cloud video.

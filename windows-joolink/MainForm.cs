@@ -226,7 +226,7 @@ public sealed class MainForm : Form
     {
         try
         {
-            Core.Initialize();
+            Core.Initialize(VlcLocator.Find());
             lib = new LibVLC("--no-video-title-show");
             player = new MediaPlayer(lib);
             view = new VideoView { Dock = DockStyle.Fill, BackColor = Color.Black, MediaPlayer = player };

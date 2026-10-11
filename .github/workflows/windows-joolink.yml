@@ -1,4 +1,4 @@
-name: Build HomeJoolink Windows x64
+name: Build HomeJoolink Windows x64 EXE
 on:
   push:
     branches: [joolink-windows-v1]
@@ -10,7 +10,7 @@ permissions:
   contents: write
 jobs:
   windows:
-    name: Build Windows desktop package
+    name: Build and test one Windows EXE
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -18,28 +18,46 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Build x64 app with bundled .NET and VLC
-        shell: pwsh
-        run: dotnet publish windows-joolink/HomeJoolink.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false --output windows-joolink/publish
-      - name: Zip the full app folder
+      - name: Publish self-contained Windows EXE
         shell: pwsh
         run: |
-          if (-not (Test-Path 'windows-joolink/publish/HomeJoolink.exe')) { throw 'HomeJoolink.exe missing' }
-          Compress-Archive -Path 'windows-joolink/publish/*' -DestinationPath 'HomeJoolink-Windows-x64.zip' -Force
-      - name: Upload Windows build artifact
+          dotnet publish windows-joolink/HomeJoolink.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeAllContentForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false -o windows-joolink/publish-single
+          if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+      - name: Confirm there are no companion files
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'windows-joolink/publish-single/HomeJoolink.exe').Path
+          $other = @(Get-ChildItem 'windows-joolink/publish-single' -File -Recurse | Where-Object { $_.FullName -ne $exe })
+          if ($other.Count -gt 0) { throw ("Not a single-file build: " + ($other.Name -join ', ')) }
+          $mb = [Math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "Single EXE $mb MB"
+      - name: Smoke-test embedded VLC with Windows executable
+        shell: pwsh
+        run: |
+          $result = Join-Path $env:RUNNER_TEMP 'homejoolink-vlc-selftest.txt'
+          $app = (Resolve-Path 'windows-joolink/publish-single/HomeJoolink.exe').Path
+          $process = Start-Process -FilePath $app -ArgumentList @('--self-test', $result) -Wait -PassThru
+          if (!(Test-Path $result)) { throw "Self-test did not produce result; exit $($process.ExitCode)" }
+          $report = Get-Content -LiteralPath $result -Raw
+          Write-Host $report
+          if ($process.ExitCode -ne 0 -or !$report.StartsWith('OK')) { throw "VLC self-test failed" }
+      - name: Prepare standalone EXE
+        shell: pwsh
+        run: Copy-Item 'windows-joolink/publish-single/HomeJoolink.exe' 'HomeJoolink-Windows-v1.0.1.exe'
+      - name: Upload EXE as CI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-Windows-x64
-          path: HomeJoolink-Windows-x64.zip
+          name: HomeJoolink-Windows-v1.0.1-EXE
+          path: HomeJoolink-Windows-v1.0.1.exe
           retention-days: 30
-      - name: Publish Windows test release
+      - name: Publish public GitHub EXE release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view 'joolink-windows-v1.0.0' 2>$null | Out-Null
+          gh release view 'joolink-windows-v1.0.1' 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create 'joolink-windows-v1.0.0' 'HomeJoolink-Windows-x64.zip' --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.0 (TEST)' --notes 'Windows 10/11 x64 test: Joolink cloud login and camera list plus RTSP/HTTP LibVLC media player with software/hardware decoder options. Vendor cloud live video is NOT yet implemented. Download ZIP, extract all files, run HomeJoolink.exe.'
+            gh release create 'joolink-windows-v1.0.1' 'HomeJoolink-Windows-v1.0.1.exe' --target '${{ github.sha }}' --title 'HomeJoolink Windows v1.0.1 (single EXE TEST)' --notes 'Single Windows 10/11 x64 EXE, no ZIP required. Bundled .NET 8 + LibVLC. App includes experimental Joolink cloud login/camera list and RTSP/HTTP media player. Manufacturer cloud live-video/P2P protocol is NOT implemented. Unsigned test application.'
           } else {
-            gh release upload 'joolink-windows-v1.0.0' 'HomeJoolink-Windows-x64.zip' --clobber
+            gh release upload 'joolink-windows-v1.0.1' 'HomeJoolink-Windows-v1.0.1.exe' --clobber
           }
