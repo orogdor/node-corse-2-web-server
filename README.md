@@ -1,8 +1,8 @@
-# HomeJoolink — Android test app (1.6.1)
+# HomeJoolink — Android test app (1.6.2)
 
-This is the experimental cloud relay diagnostic application for Joolink/Jooan cameras. Android app name: **HomeJoolink**, package: `ee.homejoolink.app`, APK file: **HomeJoolink.apk**. It installs alongside the previous Joolink Viewer. It can sign in to Joolink, list cameras and test a vendor UID/TURN server-relay handshake, but **does not yet play vendor cloud video**. The KP2P test can fail if a camera uses TUTK instead.
+This is the experimental cloud relay diagnostic application for Joolink/Jooan cameras. Android app name: **HomeJoolink**, package: `ee.homejoolink.app.diag162`, APK file: **HomeJoolink-1.6.2.apk**. It installs alongside the previous Joolink Viewer. It can sign in to Joolink, list cameras and test a vendor UID/TURN server-relay handshake, but **does not yet play vendor cloud video**. The KP2P test can fail if a camera uses TUTK instead.
 
-**Build:** [GitHub Actions](https://github.com/orogdor/node-corse-2-web-server/actions) → **Build HomeJoolink Android APK** → successful run → artifact **HomeJoolink-APK**. Extract the artifact ZIP and install `HomeJoolink.apk` on an arm64 Android phone. For details read [RELAY_PROBE.md](RELAY_PROBE.md).
+**Build:** [GitHub Actions](https://github.com/orogdor/node-corse-2-web-server/actions) → **Build HomeJoolink Android APK** → successful run → artifact **HomeJoolink-1.6.2-APK**. Extract the artifact ZIP and install `HomeJoolink-1.6.2.apk` on an arm64 Android phone. For details read [RELAY_PROBE.md](RELAY_PROBE.md).
 
 ---
 
