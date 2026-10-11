@@ -78,6 +78,7 @@ public class HomeActivity extends Activity {
             "Kohalik WiFi / RTSP / ONVIF",
             "Internet / VPN kaugvaade",
             "Joolinki pilve diagnostika",
+            "Jooan videovahenduse katse (UID/TURN)",
             "Värskenda kaamerad",
             "Logi pilvekontost välja"
         };
@@ -91,8 +92,9 @@ public class HomeActivity extends Activity {
                         local.putExtra("connection_mode","local");startActivity(local);break;
                     case 2:startActivity(new Intent(this,InternetActivity.class));break;
                     case 3:startActivity(new Intent(this,JoolinkApiInspector.class));break;
-                    case 4:refreshCameras(true);break;
-                    case 5:new AlertDialog.Builder(this).setTitle("Logi välja?")
+                    case 4:startActivity(new Intent(this,CloudRelayProbeActivity.class));break;
+                    case 5:refreshCameras(true);break;
+                    case 6:new AlertDialog.Builder(this).setTitle("Logi välja?")
                         .setMessage("Joolinki pilveseanss, salvestatud kaameraloend ja ühenduste seosed kustutatakse. Kohaliku RTSP loend jääb alles.")
                         .setNegativeButton("Tühista",null)
                         .setPositiveButton("Logi välja",(d,w)->{
@@ -147,6 +149,15 @@ public class HomeActivity extends Activity {
             Button open=Ui.button(this,mapped?"▶ Vaata ja juhi":"Seadista video ja juhtimine");
             open.setOnClickListener(v->openCamera(key,title));
             Ui.add(card,open,this,11);
+            Button relay=Ui.secondary(this,"Katseta serveri kaudu videot (KP2P/TURN)");
+            final int cameraIndex=index;
+            relay.setOnClickListener(v->{
+                Intent intent=new Intent(this,CloudRelayProbeActivity.class);
+                intent.putExtra("camera_index",cameraIndex);
+                intent.putExtra("camera_name",title);
+                startActivity(intent);
+            });
+            Ui.add(card,relay,this,6);
             Button settings=Ui.secondary(this,"Kaamera ühenduse seaded");
             settings.setOnClickListener(v->openBinding(key,title));
             Ui.add(card,settings,this,6);
