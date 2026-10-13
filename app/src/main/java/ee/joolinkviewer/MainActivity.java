@@ -230,7 +230,7 @@ public class MainActivity extends Activity {
             list.set(k,new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort(),onvifIpInput.getText().toString().trim()));
             replaced=true;break;
         }
-        if(!replaced)list.add(new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort()));
+        if(!replaced)list.add(new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort(),onvifIpInput.getText().toString().trim()));
         CameraStore.save(this,list);redrawSaved();
         Toast.makeText(this,"Kaamera salvestatud, parooli ei salvestatud.",Toast.LENGTH_SHORT).show();
     }
