@@ -193,7 +193,7 @@ def make_onvif_server(state, host, port):
             elif "GotoHomePosition" in body:
                 state.add_ptz("home")
                 answer="<tptz:GotoHomePositionResponse/>"
-            elif "<tptz:Stop" in body or "Stop>" in body:
+            elif "<tptz:Stop" in body or "<Stop" in body:
                 state.add_ptz("stop")
                 answer="<tptz:StopResponse/>"
             elif "SetImagingSettings" in body:
