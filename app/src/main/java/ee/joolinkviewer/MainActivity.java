@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainActivity extends Activity {
     private LinearLayout base,foundList,savedList,profilesList;
-    private EditText nameInput,urlInput,userInput,passInput,onvifPortInput;
+    private EditText nameInput,urlInput,userInput,passInput,onvifPortInput,onvifIpInput;
     private TextView status;
     private Button scanButton,profileButton;
     private volatile boolean destroyed;
@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         base=Ui.vertical(this);
         base.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,36));
         scroll.addView(base);setContentView(scroll);
-        Ui.add(base,Ui.text(this,"HOMEJOOLINK 2.0",25,true),this,0);
+        Ui.add(base,Ui.text(this,"HOMEJOOLINK 2.1 · PTZ",25,true),this,0);
         TextView sub=Ui.text(this,"KAAMERAD  /  OTSEVIDEO  /  EDASISAATMINE",13,false);
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
         Ui.add(base,Ui.text(this,"◉  Kaamera otsing",19,true),this,16);
@@ -57,6 +57,10 @@ public class MainActivity extends Activity {
         onvifPortInput=Ui.input(this,"ONVIF port (tavaliselt 80)");
         onvifPortInput.setInputType(InputType.TYPE_CLASS_NUMBER);onvifPortInput.setText("80");
         Ui.add(base,onvifPortInput,this,8);
+        onvifIpInput=Ui.input(this,"ONVIF juhtimise IP (tühi = RTSP IP)");
+        Ui.add(base,onvifIpInput,this,8);
+        TextView ptzHelp=Ui.text(this,"RTSP video ja ONVIF juhtimine võivad olla eri IP-aadressidel. Enne .109 juhtimist kontrolli, et see on õige kaamera.",12,false);
+        ptzHelp.setTextColor(Ui.MUTED);Ui.add(base,ptzHelp,this,4);
         TextView formats=Ui.text(this,"Toetatud lingid: RTSP (H.264/H.265), RTSPs, HTTP MJPEG, HLS (.m3u8), kui kaamera neid pakub.",12,false);
         formats.setTextColor(Ui.MUTED);Ui.add(base,formats,this,5);
         profileButton=Ui.secondary(this,"Leia ONVIF põhivoog ja alamvoog");
@@ -127,16 +131,18 @@ public class MainActivity extends Activity {
     private void addCandidate(String ip,int port,boolean onvif){
         LinearLayout card=Ui.card(this);
         Ui.add(card,Ui.text(this,(onvif?"ONVIF seade: ":"RTSP port: ")+ip+":"+port,15,true),this,0);
-        Button use=Ui.secondary(this,onvif?"Kasuta ONVIF seadet":"Leia RTSP rada");
+        Button use=Ui.secondary(this,onvif?"Kasuta juhtimiseks (video ei muutu)":"Leia RTSP rada");
         Ui.add(card,use,this,6);
         use.setOnClickListener(v->{
-            use.setEnabled(false);nameInput.setText("Kaamera "+ip.substring(ip.lastIndexOf('.')+1));
+            use.setEnabled(false);
             if(onvif){
+                onvifIpInput.setText(ip);
                 onvifPortInput.setText(String.valueOf(port));
-                urlInput.setText("rtsp://"+ip+":554/live/ch0");
                 use.setEnabled(true);
+                notifyText("ONVIF juhtimiseks: "+ip+":"+port+". Videovoog jäi samaks. Kontrolli, et see on sama kaamera.");
                 findProfiles();
             }else{
+                nameInput.setText("Kaamera "+ip.substring(ip.lastIndexOf('.')+1));
                 new Thread(()->{
                     String stream=RtspNetwork.findPath(ip,port);
                     if(!destroyed)runOnUiThread(()->{
@@ -158,8 +164,17 @@ public class MainActivity extends Activity {
         Toast.makeText(this,"Sisesta esmalt kaamera kohaliku võrgu aadress (nt rtsp://192.168.1.10:554/live/ch0)",Toast.LENGTH_LONG).show();
         return null;
     }
+    private String selectedOnvifIp(){
+        String chosen=onvifIpInput.getText().toString().trim();
+        if(chosen.isEmpty())return selectedIp();
+        if(!RtspNetwork.isPrivate(chosen)){
+            Toast.makeText(this,"ONVIF peab olema kohaliku võrgu IPv4 aadress.",Toast.LENGTH_LONG).show();
+            return null;
+        }
+        return chosen;
+    }
     private void findProfiles(){
-        String ip=selectedIp();if(ip==null)return;
+        String ip=selectedOnvifIp();if(ip==null)return;
         final int port=onvifPort();
         final String user=userInput.getText().toString().trim(),pass=passInput.getText().toString();
         profileButton.setEnabled(false);
@@ -170,7 +185,7 @@ public class MainActivity extends Activity {
                 c.connect();
                 if(!destroyed)runOnUiThread(()->{
                     profileButton.setEnabled(true);
-                    notifyText(c.streams.isEmpty()?"ONVIF leitud, aga RTSP vooge ei tagastatud.":"ONVIF ühendus: "+c.streams.size()+" videovoogu; PTZ="+c.ptzAvailable+"; öörežiim="+c.imagingAvailable);
+                    notifyText("ONVIF "+ip+":"+port+" • PTZ "+(c.supportsPtz()?"on olemas":"pole tuvastatud")+" • videovooge "+c.streams.size());
                     for(OnvifClient.Stream s:c.streams){
                         Button choose=Ui.secondary(this,"Vali: "+s.name);
                         choose.setOnClickListener(v->{urlInput.setText(s.url);notifyText("Valitud "+s.name);});
@@ -197,7 +212,10 @@ public class MainActivity extends Activity {
         i.putExtra("camera",nameInput.getText().toString().trim());
         i.putExtra("url",RtspNetwork.validUrl(url)?RtspNetwork.withCredentials(url,user,pass):"");
         i.putExtra("camera_ip",Uri.parse(url).getHost());
-        i.putExtra("onvif_port",onvifPort());i.putExtra("user",user);i.putExtra("pass",pass);
+        i.putExtra("onvif_port",onvifPort());
+        String chosen=onvifIpInput.getText().toString().trim();
+        i.putExtra("onvif_ip",chosen.isEmpty()?Uri.parse(url).getHost():chosen);
+        i.putExtra("user",user);i.putExtra("pass",pass);
         return i;
     }
     private void play(){if(validatedUrl()!=null)startActivity(extras(PlayerActivity.class));}
@@ -209,7 +227,7 @@ public class MainActivity extends Activity {
         List<CameraStore.Camera> list=CameraStore.load(this);
         boolean replaced=false;
         for(int k=0;k<list.size();k++)if(list.get(k).url.equals(safe)){
-            list.set(k,new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort()));
+            list.set(k,new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort(),onvifIpInput.getText().toString().trim()));
             replaced=true;break;
         }
         if(!replaced)list.add(new CameraStore.Camera(name,safe,userInput.getText().toString().trim(),onvifPort()));
@@ -229,7 +247,7 @@ public class MainActivity extends Activity {
             Button choose=Ui.button(this,"Vali");
             choose.setOnClickListener(v->{
                 nameInput.setText(c.name);urlInput.setText(c.url);userInput.setText(c.username);
-                onvifPortInput.setText(String.valueOf(c.onvifPort));passInput.setText("");
+                onvifPortInput.setText(String.valueOf(c.onvifPort));onvifIpInput.setText(c.onvifIp);passInput.setText("");
                 Toast.makeText(this,"Kaamera valitud; vajadusel sisesta parool.",Toast.LENGTH_SHORT).show();
             });
             buttons.addView(choose,new LinearLayout.LayoutParams(0,Ui.dp(this,46),1));
