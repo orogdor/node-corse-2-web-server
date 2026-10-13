@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ScrollView;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -20,6 +21,7 @@ public class PlayerActivity extends Activity {
     private PlayerView video;
     private TextView status;
     private String stream;
+    private PtzPanel ptz;
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().setStatusBarColor(Ui.BG);
@@ -41,24 +43,34 @@ public class PlayerActivity extends Activity {
         status=Ui.text(this,"Ühendan kaameraga...",13,false);
         status.setTextColor(Ui.MUTED);
         Ui.add(root,status,this,8);
+        ScrollView actionScroll=new ScrollView(this);
+        LinearLayout actionButtons=Ui.vertical(this);
+        actionScroll.addView(actionButtons);
+        root.addView(actionScroll,new LinearLayout.LayoutParams(-1,Ui.dp(this,330)));
+        String onvifIp=getIntent().getStringExtra("onvif_ip");
+        if(onvifIp==null||onvifIp.isEmpty())onvifIp=Uri.parse(stream).getHost();
+        ptz=new PtzPanel(this,onvifIp,getIntent().getIntExtra("onvif_port",80),
+            getIntent().getStringExtra("user"),getIntent().getStringExtra("pass"));
+        ptz.attach(actionButtons);
         Button retry=Ui.button(this,"↻ Ühenda uuesti");
         retry.setOnClickListener(v->open());
-        Ui.add(root,retry,this,9);
+        Ui.add(actionButtons,retry,this,9);
         Button landscape=Ui.secondary(this,"⛶ Rõhtvaade");
         landscape.setOnClickListener(v->{
             boolean isLandscape=getRequestedOrientation()==ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
             setRequestedOrientation(isLandscape?ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED:ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         });
-        Ui.add(root,landscape,this,8);
+        Ui.add(actionButtons,landscape,this,8);
         Button back=Ui.secondary(this,"← Tagasi");
         back.setOnClickListener(v->finish());
-        Ui.add(root,back,this,8);
-        TextView notice=Ui.text(this,"Kui Lite ei kuva otsepilti, kasuta VLC versiooni. ONVIF PTZ ja salvestamine on VLC variandis.",12,false);
+        Ui.add(actionButtons,back,this,8);
+        TextView notice=Ui.text(this,"PTZ töötab ainult ONVIF-toega kaameraga. Kui Lite ei ava pilti, proovi VLC versiooni.",12,false);
         notice.setTextColor(Ui.MUTED);
-        Ui.add(root,notice,this,9);
+        Ui.add(actionButtons,notice,this,9);
     }
     @Override protected void onStart(){super.onStart();open();}
     @Override protected void onStop(){releasePlayer();super.onStop();}
+    @Override protected void onDestroy(){if(ptz!=null)ptz.close();super.onDestroy();}
     private void releasePlayer(){
         if(video!=null)video.setPlayer(null);
         if(player!=null){player.release();player=null;}
