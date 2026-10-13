@@ -1,27 +1,35 @@
-plugins {
-    id 'com.android.application'
-}
-
+plugins { id 'com.android.application' }
 android {
     namespace 'ee.joolinkviewer'
     compileSdk 35
     defaultConfig {
-        applicationId 'ee.joolinkviewer'
+        applicationId 'ee.homejoolink'
         minSdk 26
         targetSdk 35
-        ndk { abiFilters 'arm64-v8a' }
-        versionCode 3
-        versionName '1.1.0'
+        versionCode 20
+        versionName '2.0.0'
     }
-    buildTypes {
-        release { minifyEnabled false }
+    flavorDimensions 'player'
+    productFlavors {
+        lite {
+            dimension 'player'
+            applicationId 'ee.homejoolink.lite'
+            resValue 'string','app_name','HomeJoolink Lite'
+        }
+        compat {
+            dimension 'player'
+            applicationId 'ee.homejoolink.compat'
+            ndk { abiFilters 'arm64-v8a' }
+            resValue 'string','app_name','HomeJoolink VLC'
+        }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
+    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
-
 dependencies {
-    implementation 'org.videolan.android:libvlc-all:3.7.0'
+    compatImplementation 'org.videolan.android:libvlc-all:3.7.0'
+    liteImplementation 'androidx.media3:media3-exoplayer:1.5.1'
+    liteImplementation 'androidx.media3:media3-exoplayer-rtsp:1.5.1'
+    liteImplementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+    liteImplementation 'androidx.media3:media3-ui:1.5.1'
 }

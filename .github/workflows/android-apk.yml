@@ -1,7 +1,7 @@
-name: Build Joolink Viewer APK
+name: Build HomeJoolink 2.0
 on:
   push:
-    branches: [joolink-viewer-public]
+    branches: [homejoolink-lite-v2]
   workflow_dispatch:
 permissions:
   contents: write
@@ -14,48 +14,44 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Android SDK components
-        shell: bash
+      - name: Android SDK 35
         run: |
-          set -e
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
-          test -n "$SDKMANAGER" || { echo "Android sdkmanager missing"; exit 1; }
-          echo "Using $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
-      - name: Verify arm64-only APK
+      - name: Build APKs
+        run: gradle --no-daemon --stacktrace assembleLiteDebug assembleCompatDebug
+      - name: Verify outputs
         run: |
           python3 - <<'PY'
-          import zipfile
-          path = "app/build/outputs/apk/debug/app-debug.apk"
-          with zipfile.ZipFile(path) as z:
-              abis = sorted(set(s.split("/")[1] for s in z.namelist() if s.startswith("lib/") and s.endswith(".so")))
-              print("ABIs:", abis)
-              assert abis == ["arm64-v8a"], f"Expected arm64-v8a only, found: {abis}"
+          import os,zipfile
+          for flavor in ("lite","compat"):
+              path=f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk"
+              with zipfile.ZipFile(path) as z:
+                  abis=sorted({v.split("/")[1] for v in z.namelist() if v.startswith("lib/") and v.endswith(".so")})
+                  print(flavor,round(os.path.getsize(path)/1024/1024,2),"MiB",abis)
+                  if flavor=="compat": assert abis==["arm64-v8a"]
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: JoolinkViewer-arm64-v1.1.0
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: HomeJoolink-2.0-APK
+          path: |
+            app/build/outputs/apk/lite/debug/app-lite-debug.apk
+            app/build/outputs/apk/compat/debug/app-compat-debug.apk
           if-no-files-found: error
-      - name: Publish directly downloadable APK in Releases
+      - name: Publish APK download links
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          TAG="joolink-viewer-v1.1.0"
-          APK="app/build/outputs/apk/debug/app-debug.apk"
+          set -e
+          TAG="homejoolink-lite-v2.0.0"
+          LITE="app/build/outputs/apk/lite/debug/app-lite-debug.apk"
+          VLC="app/build/outputs/apk/compat/debug/app-compat-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#JoolinkViewer-arm64-v1.1.0.apk" --clobber
+            gh release upload "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --clobber
           else
-            gh release create "$TAG" "$APK#JoolinkViewer-arm64-v1.1.0.apk" \
-              --target "$GITHUB_SHA" \
-              --title "Joolink Viewer 1.1.0 (Android ARM64 APK)" \
-              --notes "ONVIF PTZ/oo/paev, voogude valik, kohalik ajalugu, kaamera ONVIF replay ning automaatne kaheastmeline otsing. Funktsioonid olenevad kaamera toest. Testitud GitHubi ehitusega, mitte seadmega." \
-              --latest=false
+            gh release create "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --target "$GITHUB_SHA" --title "HomeJoolink 2.0 – Lite + VLC" --notes "Lite Media3 RTSP TCP is experimental. VLC flavor keeps tested Joolink Viewer 1.1.0 video engine. LAN RTSP relay experimental, proprietary cloud P2P not implemented." --latest=false
           fi

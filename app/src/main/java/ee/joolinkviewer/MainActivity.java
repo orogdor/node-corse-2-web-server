@@ -35,17 +35,17 @@ public class MainActivity extends Activity {
         base=Ui.vertical(this);
         base.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,36));
         scroll.addView(base);setContentView(scroll);
-        Ui.add(base,Ui.text(this,"JOOLINK VIEWER 1.1",25,true),this,0);
-        TextView sub=Ui.text(this,"Otse WiFi-võrgust • ONVIF juhtimine • videovoogude valik",13,false);
+        Ui.add(base,Ui.text(this,"HOMEJOOLINK 2.0",25,true),this,0);
+        TextView sub=Ui.text(this,"KAAMERAD  /  OTSEVIDEO  /  EDASISAATMINE",13,false);
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
-        Ui.add(base,Ui.text(this,"1. Leia oma kaamera",19,true),this,16);
-        scanButton=Ui.button(this,"Otsi automaatselt (2 etappi)");
+        Ui.add(base,Ui.text(this,"◉  Kaamera otsing",19,true),this,16);
+        scanButton=Ui.button(this,"⌕  Otsi kodusest WiFi-võrgust");
         scanButton.setOnClickListener(v->scan());Ui.add(base,scanButton,this,8);
         status=Ui.text(this,"Telefon ja kaamera peavad olema samas WiFi-võrgus.",13,false);
         status.setTextColor(Ui.MUTED);Ui.add(base,status,this,7);
         foundList=Ui.vertical(this);Ui.add(base,foundList,this,4);
 
-        Ui.add(base,Ui.text(this,"2. Kaamera seaded",19,true),this,20);
+        Ui.add(base,Ui.text(this,"Kaamera ühendus",19,true),this,20);
         nameInput=Ui.input(this,"Kaamera nimi");nameInput.setText("Kaamera 1");Ui.add(base,nameInput,this,8);
         urlInput=Ui.input(this,"RTSP, RTSPs, HTTP, HTTPS või HLS URL");
         urlInput.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
@@ -62,13 +62,21 @@ public class MainActivity extends Activity {
         profileButton=Ui.secondary(this,"Leia ONVIF põhivoog ja alamvoog");
         profileButton.setOnClickListener(v->findProfiles());Ui.add(base,profileButton,this,11);
         profilesList=Ui.vertical(this);Ui.add(base,profilesList,this,4);
-        Button play=Ui.button(this,"▶ Ava kaamerapilt ja juhtimine");
+        Button play=Ui.button(this,"▶  VAATA OTSEPILTI");
         play.setOnClickListener(v->play());Ui.add(base,play,this,10);
         Button save=Ui.secondary(this,"Salvesta kaamera loendisse");
         save.setOnClickListener(v->save());Ui.add(base,save,this,7);
         Button history=Ui.secondary(this,"▣ Vaata ajalugu ja salvestisi");
         history.setOnClickListener(v->openHistory());Ui.add(base,history,this,7);
-        Ui.add(base,Ui.text(this,"Minu kaamerad",19,true),this,20);
+        LinearLayout relayCard=Ui.card(this);
+        Ui.add(relayCard,Ui.text(this,"⇄  Video edasi saatmine",17,true),this,0);
+        TextView relayText=Ui.text(this,"Eksperimentaalne RTSP LAN-saatja. Joolinki P2P pilveühendus pole veel valmis.",12,false);
+        relayText.setTextColor(Ui.MUTED);Ui.add(relayCard,relayText,this,6);
+        Button relay=Ui.secondary(this,"Ava saatja labor →");
+        relay.setOnClickListener(v->startActivity(extras(RelayActivity.class)));
+        Ui.add(relayCard,relay,this,9);
+        Ui.add(base,relayCard,this,20);
+        Ui.add(base,Ui.text(this,"Salvestatud kaamerad",19,true),this,20);
         savedList=Ui.vertical(this);Ui.add(base,savedList,this,5);
         redrawSaved();
         TextView footer=Ui.text(this,"Otsing skannib vaid telefoni kohalikku WiFi-võrku. Kui kiire RTSP otsing ei leia midagi, teeb rakendus teise ONVIF- ja laiendatud otsingu automaatselt. " +
