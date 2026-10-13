@@ -14,3 +14,7 @@ Branch: homejoolink-lite-v2.
 APK builds: GitHub Actions in .github/workflows/android-apk.yml builds both flavors and publishes a release. Both have independent Android application IDs so the installed apps can be compared.
 
 Source remains editable and the original 1.1.0 version remains available as a tag.
+
+
+## PTZ 2.1
+The proven working local RTSP stream may use `192.168.8.108:5540`. The separately detected ONVIF device `192.168.8.109:80` can be selected as the **control address without replacing the video address**. Do not assume both addresses belong to the same physical camera; verify the target before commanding it. The updated Lite player now has ONVIF hold-to-move buttons, stop-on-release, zoom and diagnostics; VLC retains its existing PTZ controls. PTZ is conditional on the device implementing ONVIF PTZ with suitable account permissions, and has not been tested on the user's hardware. This is not proprietary Joolink P2P PTZ.
