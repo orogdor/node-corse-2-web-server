@@ -9,10 +9,11 @@ import java.util.List;
 /** Stores only camera name, sanitized address, username and ONVIF port. No passwords. */
 final class CameraStore {
     static class Camera {
-        String name,url,username;
+        String name,url,username,onvifIp;
         int onvifPort;
-        Camera(String name,String url,String username,int port) {
+        Camera(String name,String url,String username,int port,String onvifIp) {
             this.name=name;this.url=url;this.username=username;this.onvifPort=port;
+            this.onvifIp=onvifIp==null?"":onvifIp;
         }
     }
     static List<Camera> load(Context c){
@@ -22,7 +23,7 @@ final class CameraStore {
             JSONArray a=new JSONArray(json);
             for(int i=0;i<a.length();i++){
                 JSONObject x=a.getJSONObject(i);
-                list.add(new Camera(x.optString("name"),x.optString("url"),x.optString("username"),x.optInt("onvifPort",80)));
+                list.add(new Camera(x.optString("name"),x.optString("url"),x.optString("username"),x.optInt("onvifPort",80),x.optString("onvifIp","")));
             }
         }catch(Exception ignored){}
         return list;
@@ -36,6 +37,7 @@ final class CameraStore {
                 x.put("url",RtspNetwork.stripCredentials(item.url));
                 x.put("username",item.username);
                 x.put("onvifPort",item.onvifPort);
+                x.put("onvifIp",item.onvifIp);
                 arr.put(x);
             }catch(Exception ignored){}
         }
