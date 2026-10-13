@@ -1,7 +1,7 @@
-name: Build HomeJoolink 2.0
+name: Build HomeJoolink 2.1 PTZ
 on:
   push:
-    branches: [homejoolink-lite-v2]
+    branches: [homejoolink-ptz-v2.1]
   workflow_dispatch:
 permissions:
   contents: write
@@ -47,11 +47,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          TAG="homejoolink-lite-v2.0.0"
+          TAG="homejoolink-ptz-v2.1.0"
           LITE="app/build/outputs/apk/lite/debug/app-lite-debug.apk"
           VLC="app/build/outputs/apk/compat/debug/app-compat-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --clobber
+            gh release upload "$TAG" "$LITE#HomeJoolink-Lite-PTZ-2.1.apk" "$VLC#HomeJoolink-VLC-PTZ-2.1.apk" --clobber
           else
-            gh release create "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --target "$GITHUB_SHA" --title "HomeJoolink 2.0 – Lite + VLC" --notes "Lite Media3 RTSP TCP is experimental. VLC flavor keeps tested Joolink Viewer 1.1.0 video engine. LAN RTSP relay experimental, proprietary cloud P2P not implemented." --latest=false
+            gh release create "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --target "$GITHUB_SHA" --title "HomeJoolink 2.1 – RTSP + ONVIF PTZ" --notes "RTSP video and ONVIF PTZ can use separate configured local addresses. Lite has ONVIF PTZ pad; VLC maintains original motor. Verify camera identity. P2P is not implemented." --latest=false
           fi
