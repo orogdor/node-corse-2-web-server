@@ -69,7 +69,7 @@ public class PlayerActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         streamUrl=getIntent().getStringExtra("url");
         if(streamUrl==null||(!RtspNetwork.validUrl(streamUrl)&&!streamUrl.startsWith("file://"))){finish();return;}
-        cameraIp=getIntent().getStringExtra("camera_ip");
+        cameraIp=getIntent().getStringExtra("onvif_ip");
         if(cameraIp==null||!RtspNetwork.isPrivate(cameraIp)){
             try{cameraIp=Uri.parse(streamUrl).getHost();}catch(Exception ignored){}
         }
@@ -162,7 +162,7 @@ public class PlayerActivity extends Activity {
             Ui.add(controls,timeline,this,4);
         }else{
             Ui.add(controls,Ui.text(this,"ONVIF kaamera pööramine / suum",17,true),this,12);
-            onvifStatus=Ui.text(this,"Otsin ONVIF võimalusi …",12,false);
+            onvifStatus=Ui.text(this,"Kontrollin juhtimist "+cameraIp+":"+onvifPort+" ...",12,false);
             onvifStatus.setTextColor(Ui.MUTED);Ui.add(controls,onvifStatus,this,1);
             addPTZControls(controls);
             Ui.add(controls,Ui.text(this,"Päeva- ja öörežiim",16,true),this,10);
@@ -271,8 +271,8 @@ public class PlayerActivity extends Activity {
                 c.connect();onvif=c;
                 runOnUiThread(()->{
                     if(closed)return;
-                    onvifStatus.setText("PTZ: "+(c.supportsPtz()?"võimalik":"pole tuvastatud")+
-                        " • Öö: "+(c.supportsNight()?"võimalik":"pole tuvastatud"));
+                    onvifStatus.setText("ONVIF "+cameraIp+":"+onvifPort+" • PTZ "+(c.supportsPtz()?"olemas, hoia noolt":"ei ole tuvastatud")+
+                        " • Öö: "+(c.supportsNight()?"jah":"ei"));
                     if(!c.streams.isEmpty()){
                         labels.clear();urls.clear();labels.add("Praegune voog");urls.add(streamUrl);
                         for(OnvifClient.Stream s:c.streams){labels.add(s.name);urls.add(s.url);}
