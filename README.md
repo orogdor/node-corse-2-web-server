@@ -1,20 +1,20 @@
-# HomeJoolink 2.0 – local video / P2P relay groundwork
+# HomeJoolink 2.2 – TestLab / Android TV server / VPN relay
 
-Based **directly** on the user's working Joolink Viewer 1.1.0 RTSP/LibVLC version.
-Branch: homejoolink-lite-v2.
+Uus eraldi arendusharu, mis jätab varasema töötava RTSP-vaaturi ja PTZ võimalused alles.
 
-- **HomeJoolink-Lite**: Media3 RTSP over interleaved TCP using Android's video decoders. Much smaller download; experimental and **not yet tested on the real camera**. Can run on 32-bit Android TV, subject to device codec support.
-- **HomeJoolink-VLC**: retains the exact earlier PlayerActivity video playback engine of v1.1.0, along with ONVIF and recordings. Bigger download; ARM64 only.
-- Updated dark interface styling, maintained camera discovery and saved camera credentials behavior (password is not saved).
-- **Relay Lab**: experimental local RTSP/TCP proxy on port 8554. Only for private LAN, RTSP/TCP sources and clients, without transcoding.
-- Joolink proprietary cloud **P2P/TUTK/LinkVisual is not implemented**. The LAN relay cannot read a Joolink camera with no RTSP support.
-- Never expose port 8554 to the internet. Use a secured VPN tunnel such as Tailscale for remote access. LAN RTSP relay has no independent authentication: camera's own RTSP authorization, if any, is passed through and client compatibility needs testing.
-- Relay is an experimental initial version; the foreground Android service's behavior on a specific TV box must be tested. Video packet / RTSP protocol compatibility is not guaranteed.
+Kolm arendust:
+1. TestLab: Python RTSP/ONVIF mock-camera ja integreeritud Java relay automaattestid.
+2. Android TV: taustal töötav foreground RTSP teenus, opt-in boot autostart ja Android TV launcher.
+3. Turvaline kaugvaatamine: ainult Tailscale VPN 100.64/10 kliendid, vaikimisi keelatud, ilma avaliku pordisuunamiseta.
 
-APK builds: GitHub Actions in .github/workflows/android-apk.yml builds both flavors and publishes a release. Both have independent Android application IDs so the installed apps can be compared.
+RTSP relay on valmistatud eraldiseisva Java klassina, mida saab testida ilma Android seadmeta; toetab interleaved TCP, mitut klienti ja vastuste aadresside ümberkirjutamist. Ei kodeeri videot ümber.
 
-Source remains editable and the original 1.1.0 version remains available as a tag.
+Käivita virtuaalkaamera:
+    python3 -m testlab.mock_camera --host 127.0.0.1 --rtsp-port 9554 --onvif-port 8800
 
+Automaattestid:
+    python3 -m unittest discover -s testlab -p 'test_*.py' -v
 
-## PTZ 2.1
-The proven working local RTSP stream may use `192.168.8.108:5540`. The separately detected ONVIF device `192.168.8.109:80` can be selected as the **control address without replacing the video address**. Do not assume both addresses belong to the same physical camera; verify the target before commanding it. The updated Lite player now has ONVIF hold-to-move buttons, stop-on-release, zoom and diagnostics; VLC retains its existing PTZ controls. PTZ is conditional on the device implementing ONVIF PTZ with suitable account permissions, and has not been tested on the user's hardware. This is not proprietary Joolink P2P PTZ.
+Kogu eestikeelne juhend: docs/KASUTUSJUHEND_ET.md.
+
+**Mitte valmis:** Joolinki tootja P2P pilveprotokoll, täiesti automaatne NAT-läbimine, kaug-ONVIF juhtimise vahendamine, päris Elisa boksi ja kaamera pikad töökindlustestid. Kaugvaatamiseks peab Tailscale või muu sobiv VPN juba boksis ja telefonis olemas olema. RTSP proxy ise ei paku eraldi autentimist – ära ava porti avalikku internetti.

@@ -1,10 +1,15 @@
 package ee.joolinkviewer;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -13,92 +18,144 @@ import android.text.InputType;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.util.Collections;
 
 public class RelayActivity extends Activity {
     private EditText source;
-    private TextView status,viewerUrl;
-    static String localIp(){
-        String fallback="127.0.0.1";
+    private CheckBox boot,vpn;
+    private TextView status,localLink,vpnLink;
+    private SharedPreferences prefs;
+    static String ip(boolean tailnet){
+        String fallback=tailnet?"":"127.0.0.1";
         try{
-            for(NetworkInterface net:Collections.list(NetworkInterface.getNetworkInterfaces())){
-                if(!net.isUp()||net.isLoopback())continue;
-                String name=net.getName().toLowerCase();
-                if(name.startsWith("tun")||name.startsWith("ppp"))continue;
-                for(InetAddress addr:Collections.list(net.getInetAddresses())){
-                    String ip=addr.getHostAddress();
-                    if(addr instanceof Inet4Address && RtspNetwork.isPrivate(ip)){
-                        if(name.startsWith("wlan")||name.startsWith("eth"))return ip;
-                        fallback=ip;
+            for(NetworkInterface network:Collections.list(NetworkInterface.getNetworkInterfaces())){
+                if(!network.isUp()||network.isLoopback())continue;
+                String name=network.getName().toLowerCase();
+                for(InetAddress address:Collections.list(network.getInetAddresses())){
+                    if(!(address instanceof Inet4Address))continue;
+                    String found=address.getHostAddress();
+                    if(tailnet){
+                        if(RtspProxyCore.isTailnet(found))return found;
+                    }else if(!name.startsWith("tun")&&RtspProxyCore.isLan(found)){
+                        if(name.startsWith("wlan")||name.startsWith("eth"))return found;
+                        fallback=found;
                     }
                 }
             }
         }catch(Exception ignored){}
         return fallback;
     }
-    @Override public void onCreate(Bundle b){
-        super.onCreate(b);
+    @Override public void onCreate(Bundle saved){
+        super.onCreate(saved);
+        prefs=getSharedPreferences(RelayService.PREFS,MODE_PRIVATE);
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
-        ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(Ui.BG);
+        ScrollView scroll=new ScrollView(this);
+        scroll.setBackgroundColor(Ui.BG);
         LinearLayout root=Ui.vertical(this);
-        root.setPadding(Ui.dp(this,18),Ui.dp(this,21),Ui.dp(this,18),Ui.dp(this,35));
+        root.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,32));
         scroll.addView(root);setContentView(scroll);
-        TextView tag=Ui.text(this,"HOMEJOOLINK / RELAY LAB",12,true);
+        TextView tag=Ui.text(this,"HOMEJOOLINK / SERVER 2.2",12,true);
         tag.setTextColor(Ui.PRIMARY);Ui.add(root,tag,this,0);
-        Ui.add(root,Ui.text(this,"Video saatja",29,true),this,4);
-        TextView subtitle=Ui.text(this,"LAN RTSP/TCP edastus • prototüüp",14,false);
-        subtitle.setTextColor(Ui.MUTED);Ui.add(root,subtitle,this,4);
-        LinearLayout card=Ui.card(this);Ui.add(root,card,this,18);
-        Ui.add(card,Ui.text(this,"Kaamera lähtevoog",17,true),this,0);
-        source=Ui.input(this,"rtsp://192.168.8.202:554/live/ch0");
+        Ui.add(root,Ui.text(this,"Kaamerasaatja",28,true),this,5);
+        TextView desc=Ui.text(this,"Android TV või telefon • RTSP TCP • 24/7 server",14,false);
+        desc.setTextColor(Ui.MUTED);Ui.add(root,desc,this,4);
+        LinearLayout card=Ui.card(this);Ui.add(root,card,this,17);
+        Ui.add(card,Ui.text(this,"Kaamera RTSP lähteaadress",17,true),this,0);
+        source=Ui.input(this,"rtsp://192.168.8.108:5540/live/ch0");
         source.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
-        String original=getIntent().getStringExtra("url");
-        if(original!=null)source.setText(original);
-        Ui.add(card,source,this,9);
-        Button start=Ui.button(this,"▶  Käivita LAN saatja");
-        start.setOnClickListener(v->startRelay());Ui.add(card,start,this,12);
-        Button stop=Ui.secondary(this,"■  Peata saatja");
-        stop.setOnClickListener(v->stopRelay());Ui.add(card,stop,this,8);
-        status=Ui.text(this,"Saatja on välja lülitatud.",13,false);
+        String previous=getIntent().getStringExtra("url");
+        if(previous==null||previous.isEmpty())previous=prefs.getString("url","");
+        if(previous!=null)source.setText(previous);
+        Ui.add(card,source,this,7);
+        boot=new CheckBox(this);boot.setText("Käivita automaatselt pärast boksi taaskäivitust");
+        boot.setTextColor(Ui.TEXT);boot.setChecked(prefs.getBoolean("autostart",false));
+        Ui.add(card,boot,this,8);
+        vpn=new CheckBox(this);vpn.setText("Luba Tailscale VPN-vaatajad (100.64/10)");
+        vpn.setTextColor(Ui.TEXT);vpn.setChecked(prefs.getBoolean("vpn",false));
+        Ui.add(card,vpn,this,6);
+        Button start=Ui.button(this,"▶ Käivita / taaskäivita saatja");
+        start.setOnClickListener(v->startRelay());Ui.add(card,start,this,11);
+        Button stop=Ui.secondary(this,"■ Peata saatja");
+        stop.setOnClickListener(v->stopRelay());Ui.add(card,stop,this,7);
+        status=Ui.text(this,"Olek: kontrollin...",13,false);
         status.setTextColor(Ui.MUTED);Ui.add(card,status,this,8);
-        LinearLayout endpoint=Ui.card(this);Ui.add(root,endpoint,this,16);
-        Ui.add(endpoint,Ui.text(this,"Teises seadmes avatav aadress",16,true),this,0);
-        viewerUrl=Ui.text(this,"",13,false);
-        viewerUrl.setTextColor(Ui.PRIMARY);Ui.add(endpoint,viewerUrl,this,7);
-        Button update=Ui.secondary(this,"Uuenda ühenduse aadressi");
-        update.setOnClickListener(v->updateUrl());Ui.add(endpoint,update,this,9);
-        updateUrl();
-        TextView caveat=Ui.text(this,"See vahendab TCP RTSP voogu ainult kohalikus võrgus. Vajalik on töötav RTSP allikas ja TCP interleaved RTSP klient. UDP, tootja Joolinki pilve-P2P, kaugühenduse autentimine ja voogude ümberkodeerimine ei ole toetatud. Ära suuna porti 8554 avalikku internetti; võrguväliselt kasuta turvalist VPN-i. Testi kõigepealt enda seadmetega.",13,false);
-        caveat.setTextColor(Ui.MUTED);Ui.add(root,caveat,this,18);
-        Button back=Ui.secondary(this,"←  Kaamerad");
-        back.setOnClickListener(v->finish());Ui.add(root,back,this,14);
+        Button refresh=Ui.secondary(this,"↻ Värskenda serveri olekut");
+        refresh.setOnClickListener(v->refresh());Ui.add(card,refresh,this,7);
+        LinearLayout urls=Ui.card(this);Ui.add(root,urls,this,16);
+        Ui.add(urls,Ui.text(this,"Ava teises seadmes",17,true),this,0);
+        localLink=Ui.text(this,"",14,false);
+        localLink.setTextColor(Ui.PRIMARY);Ui.add(urls,localLink,this,5);
+        Button copyLocal=Ui.secondary(this,"Kopeeri koduvõrgu URL");
+        copyLocal.setOnClickListener(v->copy(localLink.getText().toString()));
+        Ui.add(urls,copyLocal,this,7);
+        vpnLink=Ui.text(this,"",14,false);vpnLink.setTextColor(Ui.PRIMARY);
+        Ui.add(urls,vpnLink,this,11);
+        Button copyVpn=Ui.secondary(this,"Kopeeri Tailscale URL");
+        copyVpn.setOnClickListener(v->{
+            String ip=ip(true);
+            if(ip.isEmpty())status.setText("Tailscale VPN IP pole saadaval.");
+            else copy(vpnLink.getText().toString());
+        });
+        Ui.add(urls,copyVpn,this,7);
+        Button check=Ui.secondary(this,"Kontrolli, kas kohalik port vastab");
+        check.setOnClickListener(v->new Thread(()->{
+            String result;
+            try(Socket socket=new Socket("127.0.0.1",8554)){
+                result="Port 8554 vastab • server kuulab";
+            }catch(Exception e){result="Port 8554 ei vasta • "+e.getClass().getSimpleName();}
+            final String text=result;runOnUiThread(()->status.setText(text));
+        },"relay-port-check").start());
+        Ui.add(urls,check,this,9);
+        TextView safety=Ui.text(this,"Kaugvaatamiseks paigalda Tailscale nii boksi kui telefoni, ühenda samasse tailneti ning kasuta VPN URL-i. Ära suuna ruuteris porti 8554 internetti. Saatjal ei ole oma autentimist: ligipääsu piiravad privaatvõrk / Tailscale ja kaamera enda RTSP õigused. Kaamera parooli ei salvestata.",13,false);
+        safety.setTextColor(Ui.MUTED);Ui.add(root,safety,this,18);
+        Button back=Ui.secondary(this,"← Tagasi");
+        back.setOnClickListener(v->finish());Ui.add(root,back,this,12);
+        refresh();
     }
-    private void updateUrl(){
-        String original=source.getText().toString().trim();
-        Uri uri=Uri.parse(original);
-        String path=uri.getEncodedPath();
-        if(path==null||path.isEmpty())path="/";
-        if(uri.getEncodedQuery()!=null)path+="?"+uri.getEncodedQuery();
-        viewerUrl.setText("rtsp://"+localIp()+":8554"+path);
+    private String path(){
+        Uri uri=Uri.parse(source.getText().toString().trim());
+        String p=uri.getEncodedPath();
+        if(p==null||p.isEmpty())p="/";
+        if(uri.getEncodedQuery()!=null)p+="?"+uri.getEncodedQuery();
+        return p;
+    }
+    private void refresh(){
+        localLink.setText("rtsp://"+ip(false)+":8554"+path());
+        String tail=ip(true);
+        vpnLink.setText(tail.isEmpty()?"Tailscale ühendus puudub":"rtsp://"+tail+":8554"+path());
+        status.setText((RelayService.isLive()?"● Saatja töötab":"○ Saatja pole käivitatud")+
+                " • "+prefs.getString("last_error",""));
+    }
+    private void copy(String content){
+        ClipboardManager mgr=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+        mgr.setPrimaryClip(ClipData.newPlainText("HomeJoolink RTSP",content));
+        status.setText("RTSP URL kopeeritud");
     }
     private void startRelay(){
-        String url=source.getText().toString().trim();
-        Uri uri=Uri.parse(url);
-        if(!"rtsp".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null){
-            status.setText("Sisesta RTSP aadress (rtsp://...).");return;
-        }
-        Intent i=new Intent(this,RelayService.class);
-        i.setAction(RelayService.START);
-        i.putExtra("url",url);
+        String address=source.getText().toString().trim();
         try{
-            startForegroundService(i);
-            status.setText("Saatja käivitub. Kontrolli teises seadmes RTSP aadressi.");
-            updateUrl();
-        }catch(Exception e){status.setText("Ei saanud saatjat käivitada: "+e.getClass().getSimpleName());}
+            Uri parsed=Uri.parse(address);
+            if(!"rtsp".equalsIgnoreCase(parsed.getScheme())||!RtspProxyCore.isLan(parsed.getHost())){
+                status.setText("Lähtekaamera peab olema kohalik RTSP IPv4 aadress.");return;
+            }
+            String withoutPassword=RtspNetwork.stripCredentials(address);
+            prefs.edit().putString("url",withoutPassword).putBoolean("autostart",boot.isChecked())
+                .putBoolean("vpn",vpn.isChecked()).putString("last_error","").apply();
+            Intent command=new Intent(this,RelayService.class);
+            command.setAction(RelayService.START);
+            command.putExtra("url",address);
+            startForegroundService(command);
+            status.setText("Käivitan saatja...");
+            refresh();
+        }catch(Exception e){status.setText("Viga: "+e.getClass().getSimpleName()+": "+e.getMessage());}
     }
     private void stopRelay(){
-        Intent i=new Intent(this,RelayService.class);i.setAction(RelayService.STOP);
-        startService(i);status.setText("Saatja peatamise käsk saadetud.");
+        prefs.edit().putBoolean("autostart",false).apply();
+        boot.setChecked(false);
+        Intent command=new Intent(this,RelayService.class);
+        command.setAction(RelayService.STOP);
+        startService(command);status.setText("Peatan saatja...");
     }
 }

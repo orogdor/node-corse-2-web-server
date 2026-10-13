@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         base=Ui.vertical(this);
         base.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,36));
         scroll.addView(base);setContentView(scroll);
-        Ui.add(base,Ui.text(this,"HOMEJOOLINK 2.1 · PTZ",25,true),this,0);
+        Ui.add(base,Ui.text(this,"HOMEJOOLINK 2.2 · SERVER",25,true),this,0);
         TextView sub=Ui.text(this,"KAAMERAD  /  OTSEVIDEO  /  EDASISAATMINE",13,false);
         sub.setTextColor(Ui.MUTED);Ui.add(base,sub,this,2);
         Ui.add(base,Ui.text(this,"◉  Kaamera otsing",19,true),this,16);
@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
         history.setOnClickListener(v->openHistory());Ui.add(base,history,this,7);
         LinearLayout relayCard=Ui.card(this);
         Ui.add(relayCard,Ui.text(this,"⇄  Video edasi saatmine",17,true),this,0);
-        TextView relayText=Ui.text(this,"Eksperimentaalne RTSP LAN-saatja. Joolinki P2P pilveühendus pole veel valmis.",12,false);
+        TextView relayText=Ui.text(this,"RTSP LAN + Tailscale VPN saatja • Android TV automaatkäivitus • tootja pilve-P2P ei ole toetatud.",12,false);
         relayText.setTextColor(Ui.MUTED);Ui.add(relayCard,relayText,this,6);
         Button relay=Ui.secondary(this,"Ava saatja labor →");
         relay.setOnClickListener(v->startActivity(extras(RelayActivity.class)));

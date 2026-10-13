@@ -1,57 +1,68 @@
-name: Build HomeJoolink 2.1 PTZ
+name: HomeJoolink 2.2 TestLab and APK
 on:
   push:
-    branches: [homejoolink-ptz-v2.1]
+    branches: [homejoolink-2.2-testlab-server]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
-  apk:
+  android:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK 35
+      - name: RTSP and ONVIF simulator integration tests
+        run: python3 -m unittest discover -s testlab -p 'test_*.py' -v
+      - name: Install Android SDK 35
         run: |
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build APKs
+      - name: Build both APKs
         run: gradle --no-daemon --stacktrace assembleLiteDebug assembleCompatDebug
-      - name: Verify outputs
+      - name: Verify APKs
         run: |
           python3 - <<'PY'
           import os,zipfile
-          for flavor in ("lite","compat"):
-              path=f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk"
-              with zipfile.ZipFile(path) as z:
-                  abis=sorted({v.split("/")[1] for v in z.namelist() if v.startswith("lib/") and v.endswith(".so")})
-                  print(flavor,round(os.path.getsize(path)/1024/1024,2),"MiB",abis)
-                  if flavor=="compat": assert abis==["arm64-v8a"]
+          for flavor in ('lite','compat'):
+              path=f'app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk'
+              with zipfile.ZipFile(path) as f:
+                  assert f.testzip() is None
+                  abis=sorted({p.split('/')[1] for p in f.namelist() if p.startswith('lib/') and p.endswith('.so')})
+                  print(flavor,round(os.path.getsize(path)/1024/1024,2),'MiB',abis)
+                  if flavor=='compat':assert abis==['arm64-v8a']
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: HomeJoolink-2.0-APK
+          name: HomeJoolink-2.2-Both-APKs
           path: |
             app/build/outputs/apk/lite/debug/app-lite-debug.apk
             app/build/outputs/apk/compat/debug/app-compat-debug.apk
           if-no-files-found: error
-      - name: Publish APK download links
+      - name: Publish direct APK links
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
-          TAG="homejoolink-ptz-v2.1.0"
+          set -euo pipefail
+          TAG="homejoolink-v2.2-testlab-server"
           LITE="app/build/outputs/apk/lite/debug/app-lite-debug.apk"
           VLC="app/build/outputs/apk/compat/debug/app-compat-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$LITE#HomeJoolink-Lite-PTZ-2.1.apk" "$VLC#HomeJoolink-VLC-PTZ-2.1.apk" --clobber
+            gh release upload "$TAG" "$LITE#HomeJoolink-Lite-Server-v2.2.apk" "$VLC#HomeJoolink-VLC-Server-v2.2.apk" --clobber
           else
-            gh release create "$TAG" "$LITE#HomeJoolink-Lite-v2.apk" "$VLC#HomeJoolink-VLC-v2.apk" --target "$GITHUB_SHA" --title "HomeJoolink 2.1 – RTSP + ONVIF PTZ" --notes "RTSP video and ONVIF PTZ can use separate configured local addresses. Lite has ONVIF PTZ pad; VLC maintains original motor. Verify camera identity. P2P is not implemented." --latest=false
+            gh release create "$TAG" \
+              "$LITE#HomeJoolink-Lite-Server-v2.2.apk" \
+              "$VLC#HomeJoolink-VLC-Server-v2.2.apk" \
+              --target "$GITHUB_SHA" \
+              --title "HomeJoolink 2.2 - TestLab, Android TV server and VPN relay" \
+              --notes "Virtual RTSP and ONVIF camera integration tests, RTSP TCP relay core, boot opt-in, Tailscale VPN opt-in. No manufacturer Joolink cloud P2P. Hardware tests pending." \
+              --latest=false
           fi
